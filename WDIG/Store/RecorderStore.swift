@@ -38,6 +38,10 @@ actor RecorderStore {
         try modelContext.fetchCount(FetchDescriptor<Point>())
     }
 
+    func pointCount(onDay day: String) throws -> Int {
+        try modelContext.fetchCount(FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.localDay == day }))
+    }
+
     func lastPoint() throws -> PointSample? {
         var descriptor = FetchDescriptor<Point>()
         descriptor.sortBy = [SortDescriptor(\.recordedAt, order: .reverse)]
