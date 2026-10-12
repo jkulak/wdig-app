@@ -1,0 +1,376 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXFileReference section */
+		574449470000000000000001 /* WDIG.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = WDIG.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		574449470000000000000002 /* WDIGTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = WDIGTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+/* End PBXFileReference section */
+
+/* Begin PBXContainerItemProxy section */
+		574449470000000000000003 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 574449470000000000000014 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 57444947000000000000000B;
+			remoteInfo = WDIG;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		574449470000000000000004 /* Exceptions for "WDIG" folder in "WDIG" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 57444947000000000000000B /* WDIG */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		574449470000000000000005 /* WDIG */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				574449470000000000000004 /* Exceptions for "WDIG" folder in "WDIG" target */,
+			);
+			path = WDIG;
+			sourceTree = "<group>";
+		};
+		574449470000000000000006 /* WDIGTests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = WDIGTests;
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		574449470000000000000007 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		574449470000000000000008 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		574449470000000000000009 = {
+			isa = PBXGroup;
+			children = (
+				574449470000000000000005 /* WDIG */,
+				574449470000000000000006 /* WDIGTests */,
+				57444947000000000000000A /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		57444947000000000000000A /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				574449470000000000000001 /* WDIG.app */,
+				574449470000000000000002 /* WDIGTests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		57444947000000000000000B /* WDIG */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 57444947000000000000000C /* Build configuration list for PBXNativeTarget "WDIG" */;
+			buildPhases = (
+				57444947000000000000000D /* Sources */,
+				574449470000000000000007 /* Frameworks */,
+				57444947000000000000000E /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				574449470000000000000005 /* WDIG */,
+			);
+			name = WDIG;
+			productName = WDIG;
+			productReference = 574449470000000000000001 /* WDIG.app */;
+			productType = "com.apple.product-type.application";
+		};
+		57444947000000000000000F /* WDIGTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 574449470000000000000010 /* Build configuration list for PBXNativeTarget "WDIGTests" */;
+			buildPhases = (
+				574449470000000000000011 /* Sources */,
+				574449470000000000000008 /* Frameworks */,
+				574449470000000000000012 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				574449470000000000000013 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				574449470000000000000006 /* WDIGTests */,
+			);
+			name = WDIGTests;
+			productName = WDIGTests;
+			productReference = 574449470000000000000002 /* WDIGTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		574449470000000000000014 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2700;
+				LastUpgradeCheck = 2700;
+				TargetAttributes = {
+					57444947000000000000000B = {
+						CreatedOnToolsVersion = 27.0;
+					};
+					57444947000000000000000F = {
+						CreatedOnToolsVersion = 27.0;
+						TestTargetID = 57444947000000000000000B;
+					};
+				};
+			};
+			buildConfigurationList = 574449470000000000000015 /* Build configuration list for PBXProject "WDIG" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				pl,
+				Base,
+			);
+			mainGroup = 574449470000000000000009;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 57444947000000000000000A /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				57444947000000000000000B /* WDIG */,
+				57444947000000000000000F /* WDIGTests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		57444947000000000000000E /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		574449470000000000000012 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		57444947000000000000000D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		574449470000000000000011 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		574449470000000000000013 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 57444947000000000000000B /* WDIG */;
+			targetProxy = 574449470000000000000003 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		574449470000000000000016 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		574449470000000000000017 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_NO_COMMON_BLOCKS = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 26.0;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				SWIFT_STRICT_CONCURRENCY = complete;
+				SWIFT_VERSION = 6.0;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		574449470000000000000018 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PDRV6SHW75;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = WDIG/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jkulak.wdig;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Debug;
+		};
+		574449470000000000000019 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PDRV6SHW75;
+				ENABLE_PREVIEWS = YES;
+				INFOPLIST_FILE = WDIG/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jkulak.wdig;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				TARGETED_DEVICE_FAMILY = 1;
+			};
+			name = Release;
+		};
+		57444947000000000000001A /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PDRV6SHW75;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jkulak.wdig.tests;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WDIG.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WDIG";
+			};
+			name = Debug;
+		};
+		57444947000000000000001B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = PDRV6SHW75;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.jkulak.wdig.tests;
+				INFOPLIST_KEY_ITSAppUsesNonExemptEncryption = NO;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				TARGETED_DEVICE_FAMILY = 1;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/WDIG.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/WDIG";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		57444947000000000000000C /* Build configuration list for PBXNativeTarget "WDIG" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				574449470000000000000018 /* Debug */,
+				574449470000000000000019 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		574449470000000000000015 /* Build configuration list for PBXProject "WDIG" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				574449470000000000000016 /* Debug */,
+				574449470000000000000017 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		574449470000000000000010 /* Build configuration list for PBXNativeTarget "WDIGTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				57444947000000000000001A /* Debug */,
+				57444947000000000000001B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 574449470000000000000014 /* Project object */;
+}
