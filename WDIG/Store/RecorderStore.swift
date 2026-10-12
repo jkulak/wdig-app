@@ -66,6 +66,28 @@ actor RecorderStore {
         try modelContext.save()
     }
 
+    /// Removes every point and segment of one device, for the demo data; the raw points of
+    /// the phone's own device are never deleted through here.
+    func deleteEverything(ofDevice deviceId: UUID) throws -> (points: Int, segments: Int) {
+        let points = try modelContext.fetch(
+            FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.deviceId == deviceId }))
+        let days = Set(points.map(\.localDay))
+        for point in points {
+            modelContext.delete(point)
+        }
+        let segments = try modelContext.fetch(
+            FetchDescriptor<Segment>(predicate: #Predicate<Segment> { $0.deviceId == deviceId }))
+        for segment in segments {
+            modelContext.delete(segment)
+        }
+        try modelContext.save()
+        for day in days {
+            try rebuildDaySummary(for: day)
+        }
+        try modelContext.save()
+        return (points.count, segments.count)
+    }
+
     func daysWithData() throws -> [DaySummarySnapshot] {
         var descriptor = FetchDescriptor<DaySummary>(predicate: #Predicate<DaySummary> { $0.pointCount > 0 })
         descriptor.sortBy = [SortDescriptor(\.localDay, order: .reverse)]
