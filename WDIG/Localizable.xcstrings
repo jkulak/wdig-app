@@ -1,16 +1,18 @@
 {
   "sourceLanguage" : "en",
   "strings" : {
-    "No days recorded yet" : {
-      "localizations" : {
-        "pl" : {
-          "stringUnit" : {
-            "state" : "translated",
-            "value" : "Nie ma jeszcze zapisanych dni"
-          }
-        }
-      }
-    }
+    "Last fix" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Ostatni punkt" } } } },
+    "Location" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Lokalizacja" } } } },
+    "Never" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Nigdy" } } } },
+    "No days recorded yet" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Nie ma jeszcze zapisanych dni" } } } },
+    "No events yet" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Jeszcze nic się nie wydarzyło" } } } },
+    "Open Settings" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Otwórz Ustawienia" } } } },
+    "Points today" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Punkty dziś" } } } },
+    "Points total" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Punkty razem" } } } },
+    "Recent events" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Ostatnie zdarzenia" } } } },
+    "State" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Stan" } } } },
+    "Tracking" : { "localizations" : { "pl" : { "stringUnit" : { "state" : "translated", "value" : "Śledzenie" } } } },
+    "WDIG" : { "shouldTranslate" : false }
   },
   "version" : "1.0"
 }

@@ -1,0 +1,38 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "NSLocationAlwaysAndWhenInUseUsageDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WDIG records where you are through the day, also when the app is closed, to draw your day's route and the places you stopped. Choose Always so recording does not stop when you put the phone away."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WDIG zapisuje, gdzie jesteś w ciągu dnia, także gdy aplikacja jest zamknięta, aby narysować trasę dnia i miejsca, w których się zatrzymałeś. Wybierz Zawsze, aby zapis nie przerywał się po odłożeniu telefonu."
+          }
+        }
+      }
+    },
+    "NSLocationWhenInUseUsageDescription" : {
+      "localizations" : {
+        "en" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WDIG needs your location to draw your route on the map."
+          }
+        },
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "WDIG potrzebuje Twojej lokalizacji, aby narysować trasę na mapie."
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}

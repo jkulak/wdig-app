@@ -24,11 +24,19 @@
 	<false/>
 	<key>LSRequiresIPhoneOS</key>
 	<true/>
+	<key>NSLocationAlwaysAndWhenInUseUsageDescription</key>
+	<string>WDIG records where you are through the day, also when the app is closed, to draw your day's route and the places you stopped. Choose Always so recording does not stop when you put the phone away.</string>
+	<key>NSLocationWhenInUseUsageDescription</key>
+	<string>WDIG needs your location to draw your route on the map.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>
 		<false/>
 	</dict>
+	<key>UIBackgroundModes</key>
+	<array>
+		<string>location</string>
+	</array>
 	<key>UILaunchScreen</key>
 	<dict/>
 	<key>UIRequiredDeviceCapabilities</key>
