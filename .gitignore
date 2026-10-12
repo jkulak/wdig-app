@@ -1,0 +1,19 @@
+# Xcode
+xcuserdata/
+DerivedData/
+*.xcuserstate
+build/
+build-sim/
+build-phone/
+build-gate.log
+
+# Key material never enters the repository
+*.p8
+*.p12
+*.cer
+*.mobileprovision
+
+# Task files stay local until they become GitHub issues
+issues/
+
+.DS_Store
