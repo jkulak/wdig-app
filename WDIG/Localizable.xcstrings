@@ -1,0 +1,16 @@
+{
+  "sourceLanguage" : "en",
+  "strings" : {
+    "No days recorded yet" : {
+      "localizations" : {
+        "pl" : {
+          "stringUnit" : {
+            "state" : "translated",
+            "value" : "Nie ma jeszcze zapisanych dni"
+          }
+        }
+      }
+    }
+  },
+  "version" : "1.0"
+}
