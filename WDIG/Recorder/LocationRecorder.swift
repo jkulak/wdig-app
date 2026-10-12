@@ -88,7 +88,7 @@ actor LocationRecorder {
                 await self?.note(.error("session diagnostics: \(error.localizedDescription)"))
             }
         }
-        let monitor = await CLMonitor("wdig.recorder")
+        let monitor = await CLMonitor("WDIGRecorder")
         self.monitor = monitor
         if await monitor.identifiers.contains(Self.fenceIdentifier) {
             await monitor.remove(Self.fenceIdentifier)
