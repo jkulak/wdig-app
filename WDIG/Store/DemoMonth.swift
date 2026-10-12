@@ -1,14 +1,16 @@
 import Foundation
 
-/// A made-up month to look at before the recorder has one: weekdays to work and back, an
-/// evening walk now and then, weekends with a long walk, a ride or a drive, all around a home.
-/// Deterministic, under a device id of its own so it can be removed whole. The same life as
-/// the backend's `wdig seed`, so a phone and a server tell the same story.
+/// A made-up month to look at before the recorder has one, over real streets: the routes
+/// come from Apple Maps directions between real places (`DemoRoutes.json`, written by
+/// `scripts/demo-routes.swift`), and the points along them are sampled the way the recorder
+/// keeps fixes: 10 m on foot, 25 m on a bike, 50 m in a car or every 60 s, with the first
+/// hundred metres from the door missing, GPS noise and a stop's few warm-phase fixes. The
+/// backend's `wdig seed` reads the same file, so a phone and a server tell the same story.
 enum DemoMonth {
     static let deviceId = UUID(uuidString: "00000000-0000-7000-8000-00000000de00") ?? UUID()
-    static let home = Coordinate(latitude: 52.2297, longitude: 21.0122)
+    static let doorGapM: Double = 120
 
-    enum Mode: CaseIterable {
+    enum Mode: String {
         case walk
         case run
         case bike
@@ -19,7 +21,7 @@ enum DemoMonth {
             case .walk: 1.4
             case .run: 2.9
             case .bike: 5.5
-            case .car: 11.0
+            case .car: 9.0
             }
         }
 
@@ -29,6 +31,10 @@ enum DemoMonth {
             case .bike: 25
             case .car: 50
             }
+        }
+
+        var noise: Double {
+            self == .car ? 6 : 3
         }
 
         var activity: Int16 {
@@ -49,13 +55,9 @@ enum DemoMonth {
             }
         }
 
-        var type: String {
-            switch self {
-            case .walk: "walk"
-            case .run: "run"
-            case .bike: "bike"
-            case .car: "car"
-            }
+        /// The leg to route on: runs follow the walking routes.
+        var legMode: String {
+            self == .run ? "walk" : rawValue
         }
     }
 
@@ -65,20 +67,18 @@ enum DemoMonth {
     }
 
     /// Writes `days` days ending yesterday and returns a line for the screen.
-    static func generate(into store: RecorderStore, days: Int = 30, home: Coordinate = home, seed: UInt64 = 1)
-        async throws
-        -> String
-    {
-        try await remove(from: store)
+    static func generate(into store: RecorderStore, days: Int = 30, seed: UInt64 = 1) async throws -> String {
+        let routes = try DemoRoutes.load()
+        _ = try await remove(from: store)
         let tz = TimeZone.current.identifier
         var generator = SeededGenerator(seed: seed)
         var pointCount = 0
         var segmentCount = 0
         let today = LocalDay.key(for: Date(), tz: tz)
+        guard let todayStart = LocalDay.bounds(of: today, tz: tz)?.start else { return "no day" }
         for offset in stride(from: days, through: 1, by: -1) {
-            guard let todayStart = LocalDay.bounds(of: today, tz: tz)?.start else { break }
             let date = LocalDay.key(for: todayStart.addingTimeInterval(TimeInterval(-offset) * 86_400 + 3_600), tz: tz)
-            let day = makeDay(date, tz: tz, home: home, using: &generator)
+            let day = makeDay(date, tz: tz, routes: routes, using: &generator)
             try await store.append(day.points)
             for segment in day.segments {
                 try await store.upsert(segment)
@@ -94,80 +94,116 @@ enum DemoMonth {
         return "removed \(removed.points) points and \(removed.segments) segments"
     }
 
-    // MARK: - One day
+    // MARK: - The plan of a day
 
-    struct Places {
-        let home: Coordinate
-        let work: Coordinate
-        let gym: Coordinate
-        let shop: Coordinate
-        let park: Coordinate
-        let lake: Coordinate
-
-        init(home: Coordinate) {
-            self.home = home
-            work = home.offset(north: 2_100, east: 2_400)
-            gym = home.offset(north: -900, east: 1_100)
-            shop = home.offset(north: 500, east: -600)
-            park = home.offset(north: 1_500, east: -1_200)
-            lake = home.offset(north: -18_000, east: 16_000)
-        }
+    struct Visit {
+        let place: String
+        let mode: Mode
+        let stay: TimeInterval
     }
 
-    static func makeDay(_ day: String, tz: String, home: Coordinate, using generator: inout SeededGenerator) -> Day {
+    /// Where the day goes, in order, by the weekday and the dice; the day starts and ends at home.
+    static func plan(weekend: Bool, using generator: inout SeededGenerator) -> (
+        departure: TimeInterval, visits: [Visit]
+    ) {
+        var visits: [Visit] = []
+        if weekend {
+            let roll = generator.unit()
+            if roll < 0.3 {
+                visits += [
+                    Visit(place: "vistula", mode: .bike, stay: 5 * 60),
+                    Visit(place: "lomianki", mode: .bike, stay: 45 * 60),
+                    Visit(place: "vistula", mode: .bike, stay: 10 * 60), Visit(place: "home", mode: .bike, stay: 0),
+                ]
+            } else if roll < 0.55 {
+                visits += [
+                    Visit(place: "oldTown", mode: .walk, stay: 90 * 60), Visit(place: "home", mode: .walk, stay: 0),
+                ]
+            } else if roll < 0.75 {
+                visits += [
+                    Visit(place: "zloteTarasy", mode: .walk, stay: 100 * 60),
+                    Visit(place: "home", mode: .walk, stay: 0),
+                ]
+            } else if roll < 0.9 {
+                visits += [
+                    Visit(place: "lazienki", mode: .run, stay: 4 * 60), Visit(place: "home", mode: .run, stay: 0),
+                ]
+            } else {
+                visits += [
+                    Visit(place: "vistula", mode: .walk, stay: 40 * 60), Visit(place: "home", mode: .walk, stay: 0),
+                ]
+            }
+            visits.append(Visit(place: "home", mode: .walk, stay: (60 + generator.unit() * 60) * 60))
+            if generator.unit() < 0.4 {
+                if generator.unit() < 0.5 {
+                    visits += [
+                        Visit(place: "kinoteka", mode: .walk, stay: 150 * 60),
+                        Visit(place: "home", mode: .walk, stay: 0),
+                    ]
+                } else {
+                    visits += [
+                        Visit(place: "koszyki", mode: .walk, stay: 60 * 60), Visit(place: "home", mode: .walk, stay: 0),
+                    ]
+                }
+            }
+            return (10 * 3_600 + (generator.unit() * 60 - 30) * 60, visits)
+        }
+        visits += [
+            Visit(place: "office", mode: .car, stay: (8 * 60 + 20 + generator.unit() * 60 - 30) * 60),
+            Visit(place: "home", mode: .car, stay: (45 + generator.unit() * 45) * 60),
+        ]
+        let roll = generator.unit()
+        if roll < 0.3 {
+            visits += [Visit(place: "vistula", mode: .walk, stay: 25 * 60), Visit(place: "home", mode: .walk, stay: 0)]
+        } else if roll < 0.5 {
+            visits += [Visit(place: "lazienki", mode: .run, stay: 4 * 60), Visit(place: "home", mode: .run, stay: 0)]
+        } else if roll < 0.65 {
+            visits += [
+                Visit(place: "kinoteka", mode: .walk, stay: 150 * 60), Visit(place: "home", mode: .walk, stay: 0),
+            ]
+        } else if roll < 0.8 {
+            visits += [Visit(place: "koszyki", mode: .walk, stay: 50 * 60), Visit(place: "home", mode: .walk, stay: 0)]
+        }
+        return (7 * 3_600 + 50 * 60 + (generator.unit() * 30 - 15) * 60, visits)
+    }
+
+    static func makeDay(_ day: String, tz: String, routes: DemoRoutes, using generator: inout SeededGenerator) -> Day {
         guard let bounds = LocalDay.bounds(of: day, tz: tz) else { return Day(points: [], segments: []) }
-        let places = Places(home: home)
         var calendar = Calendar(identifier: .gregorian)
         calendar.timeZone = TimeZone(identifier: tz) ?? .gmt
         let weekday = calendar.component(.weekday, from: bounds.start.addingTimeInterval(3_600))
-        let weekend = weekday == 1 || weekday == 7
-        var plan: [(Coordinate, Mode, TimeInterval)] = []
-        if weekend {
-            switch Int(generator.next() % 4) {
-            case 0: plan.append((places.park, .walk, 25 * 60))
-            case 1: plan.append((places.lake, .car, 150 * 60))
-            case 2:
-                plan.append((places.park, .bike, 10 * 60))
-                plan.append((places.lake, .bike, 60 * 60))
-            default: plan.append((places.park, .run, 5 * 60))
-            }
-            plan.append((places.shop, .walk, 20 * 60))
-        } else {
-            let commute: Mode = generator.unit() < 0.6 ? .bike : .car
-            plan.append((places.work, commute, TimeInterval(505 + Int(generator.next() % 80) - 40) * 60))
-            if generator.unit() < 0.4 { plan.append((places.gym, .walk, 70 * 60)) }
-            if generator.unit() < 0.5 { plan.append((places.shop, .walk, 15 * 60)) }
-        }
-        plan.append((places.home, weekend ? .walk : plan[0].1, 0))
-
+        let (departure, visits) = plan(weekend: weekday == 1 || weekday == 7, using: &generator)
         var points: [PointSample] = []
         var segments: [SegmentSnapshot] = []
-        let departureHour: TimeInterval = weekend ? 9.5 : 7.75
-        var now = bounds.start.addingTimeInterval(
-            departureHour * 3_600 + TimeInterval(Int(generator.next() % 40) - 20) * 60)
-        var here = places.home
-        let firstStay = stay(at: places.home, from: bounds.start, to: now, tz: tz, using: &generator)
-        points += firstStay.points
-        segments.append(firstStay.segment)
-        for (destination, mode, minutes) in plan {
-            let leg = trip(from: here, to: destination, mode: mode, start: now, tz: tz, using: &generator)
-            points += leg.points
-            segments.append(leg.segment)
-            now = leg.segment.endAt
-            here = destination
-            if minutes > 0 {
-                let leave = now.addingTimeInterval(minutes)
-                let pause = stay(at: here, from: now, to: leave, tz: tz, using: &generator)
+        var now = bounds.start.addingTimeInterval(departure)
+        var here = "home"
+        let first = stay(at: routes.place("home"), from: bounds.start, to: now, tz: tz, using: &generator)
+        points += first.points
+        segments.append(first.segment)
+        for visit in visits {
+            if visit.place != here {
+                guard let leg = routes.leg(from: here, to: visit.place, mode: visit.mode.legMode) else { continue }
+                let trip = sample(leg: leg, mode: visit.mode, start: now, tz: tz, using: &generator)
+                points += trip.points
+                segments.append(trip.segment)
+                now = trip.segment.endAt
+                here = visit.place
+            }
+            if visit.stay > 0 {
+                let leave = now.addingTimeInterval(visit.stay)
+                let pause = stay(at: routes.place(here), from: now, to: leave, tz: tz, using: &generator)
                 points += pause.points
                 segments.append(pause.segment)
                 now = leave
             }
         }
-        let lastStay = stay(at: places.home, from: now, to: bounds.end, tz: tz, using: &generator)
-        points += lastStay.points
-        segments.append(lastStay.segment)
+        let last = stay(at: routes.place("home"), from: now, to: bounds.end, tz: tz, using: &generator)
+        points += last.points
+        segments.append(last.segment)
         return Day(points: points, segments: segments)
     }
+
+    // MARK: - Points along a route and at a stop
 
     static func stay(
         at place: Coordinate, from start: Date, to end: Date, tz: String, using generator: inout SeededGenerator
@@ -194,61 +230,137 @@ enum DemoMonth {
         return (points, segment)
     }
 
-    static func trip(
-        from: Coordinate, to: Coordinate, mode: Mode, start: Date, tz: String, using generator: inout SeededGenerator
-    )
+    /// Walks the leg's polyline at the mode's speed, keeping a fix every `spacing` metres or 60 s
+    /// as the recorder would, after the first `doorGapM` metres the recorder misses.
+    static func sample(leg: DemoRoutes.Leg, mode: Mode, start: Date, tz: String, using generator: inout SeededGenerator)
         -> (points: [PointSample], segment: SegmentSnapshot)
     {
-        let straight = max(from.distance(to: to), 50)
-        let bend = straight * 0.12
-        let bearing = from.bearing(to: to) * .pi / 180
-        func side(_ along: Double, _ off: Double) -> Coordinate {
-            from.offset(
-                north: along * cos(bearing) - off * sin(bearing), east: along * sin(bearing) + off * cos(bearing))
-        }
-        let first = side(straight * 0.33, generator.unit() * 2 * bend - bend)
-        let second = side(straight * 0.66, generator.unit() * 2 * bend - bend)
         var points: [PointSample] = []
-        var at = start
-        var distance = 0.0
-        for (legStart, legEnd) in [(from, first), (first, second), (second, to)] {
-            let length = legStart.distance(to: legEnd)
-            let steps = max(1, Int((length / mode.spacing).rounded(.up)))
-            let legBearing = legStart.bearing(to: legEnd) * .pi / 180
-            for index in 0..<steps {
-                let along = Double(index) / Double(steps) * length
-                let noise = generator.unit() * 6 - 3
-                let spot = legStart.offset(
-                    north: along * cos(legBearing) + noise * sin(legBearing),
-                    east: along * sin(legBearing) - noise * cos(legBearing))
-                let variation = 0.75 + generator.unit() * 0.5
-                let speed = (mode == .car && generator.unit() < 0.08) ? 0 : mode.speed * variation
-                var sample = PointSample(
-                    deviceId: deviceId, recordedAt: at, tz: tz, latitude: spot.latitude, longitude: spot.longitude,
-                    hAccM: Int16(4 + generator.next() % 12))
-                sample.speedCms = Int16((speed * 100).rounded())
-                sample.courseDeg = Int16(legStart.bearing(to: legEnd).rounded()) % 360
-                sample.activity = mode.activity
-                sample.activityConf = generator.unit() < 0.85 ? 2 : 1
-                points.append(sample)
-                let step = length / Double(steps)
-                distance += step
-                at = at.addingTimeInterval(step / max(speed, 0.5) + (speed == 0 ? 20 : 0))
+        var time = start
+        var travelled = 0.0
+        var sinceLastKept = -doorGapM
+        var lastKeptAt = start
+        var speed = mode.speed
+        var stretchLeft = 0.0
+        var recording = false
+        let coordinates = leg.coordinates
+        func keep(_ spot: Coordinate, speed: Double, course: Double) {
+            let noisy = spot.offset(
+                north: generator.unit() * 2 * mode.noise - mode.noise,
+                east: generator.unit() * 2 * mode.noise - mode.noise)
+            var sample = PointSample(
+                deviceId: deviceId, recordedAt: time, tz: tz, latitude: noisy.latitude, longitude: noisy.longitude,
+                hAccM: Int16(4 + generator.next() % 12))
+            sample.speedCms = Int16((speed * 100).rounded())
+            sample.courseDeg = Int16(course.rounded()) % 360
+            sample.activity = mode.activity
+            sample.activityConf = generator.unit() < 0.85 ? 2 : 1
+            points.append(sample)
+            lastKeptAt = time
+            sinceLastKept = 0
+        }
+        for index in 1..<coordinates.count {
+            let from = coordinates[index - 1]
+            let to = coordinates[index]
+            let length = from.distance(to: to)
+            let course = from.bearing(to: to)
+            var along = 0.0
+            while along < length {
+                if stretchLeft <= 0 {
+                    speed = mode.speed * (0.8 + generator.unit() * 0.4)
+                    stretchLeft = 150 + generator.unit() * 150
+                }
+                let step = min(mode.spacing - max(sinceLastKept, 0), stretchLeft, length - along)
+                along += step
+                travelled += step
+                stretchLeft -= step
+                sinceLastKept += step
+                time = time.addingTimeInterval(step / speed)
+                let spot = from.offset(north: along * cos(course * .pi / 180), east: along * sin(course * .pi / 180))
+                if !recording, sinceLastKept >= 0 {
+                    // The door gap is over: the recorder has its first fix from here on.
+                    recording = true
+                    lastKeptAt = time
+                }
+                if recording, sinceLastKept >= mode.spacing || time.timeIntervalSince(lastKeptAt) >= 60 {
+                    keep(spot, speed: speed, course: course)
+                }
             }
+            // A red light now and then in a car: the recorder keeps a point after a minute of standing.
+            if mode == .car, index < coordinates.count - 1, generator.unit() < 0.12 {
+                let pause = 15 + generator.unit() * 60
+                time = time.addingTimeInterval(pause)
+                if pause >= 60 {
+                    keep(to, speed: 0, course: course)
+                }
+            }
+        }
+        if let last = coordinates.last, sinceLastKept > 0 {
+            keep(last, speed: speed, course: points.last.map { Double($0.courseDeg) } ?? 0)
         }
         let steps: Int32? =
             switch mode {
-            case .walk: Int32(distance / 0.75)
-            case .run: Int32(distance / 1.1)
+            case .walk: Int32(travelled / 0.75)
+            case .run: Int32(travelled / 1.1)
             default: nil
             }
         var segment = SegmentSnapshot(
-            kind: "trip", startAt: start, endAt: at, tz: tz, modeDetected: mode.detected, modeConf: "high",
-            modeType: mode.type,
-            distanceM: Int32(distance.rounded()), pointCount: Int32(points.count))
+            kind: "trip", startAt: start, endAt: time, tz: tz, modeDetected: mode.detected, modeConf: "high",
+            modeType: mode.rawValue,
+            distanceM: Int32(travelled.rounded()), pointCount: Int32(points.count))
         segment.steps = steps
         segment.deviceId = deviceId
         return (points, segment)
+    }
+}
+
+/// The street routes and places of the demo month, from `DemoRoutes.json`.
+struct DemoRoutes: Decodable {
+    struct Place: Decodable {
+        let name: String
+        let lat: Double
+        let lon: Double
+    }
+
+    struct Leg: Decodable {
+        let from: String
+        let to: String
+        let mode: String
+        let distanceM: Int
+        let coordinates: [Coordinate]
+
+        enum CodingKeys: String, CodingKey {
+            case from, to, mode, distanceM, coordinates
+        }
+
+        init(from decoder: Decoder) throws {
+            let container = try decoder.container(keyedBy: CodingKeys.self)
+            from = try container.decode(String.self, forKey: .from)
+            to = try container.decode(String.self, forKey: .to)
+            mode = try container.decode(String.self, forKey: .mode)
+            distanceM = try container.decode(Int.self, forKey: .distanceM)
+            let pairs = try container.decode([[Double]].self, forKey: .coordinates)
+            coordinates = pairs.compactMap { $0.count == 2 ? Coordinate(latitude: $0[0], longitude: $0[1]) : nil }
+        }
+    }
+
+    let places: [String: Place]
+    let legs: [String: Leg]
+
+    static func load() throws -> DemoRoutes {
+        guard let url = Bundle.main.url(forResource: "DemoRoutes", withExtension: "json") else {
+            throw CocoaError(.fileNoSuchFile)
+        }
+        return try JSONDecoder().decode(DemoRoutes.self, from: Data(contentsOf: url))
+    }
+
+    func place(_ key: String) -> Coordinate {
+        guard let place = places[key] else { return Coordinate(latitude: 52.2288, longitude: 21.0168) }
+        return Coordinate(latitude: place.lat, longitude: place.lon)
+    }
+
+    func leg(from: String, to: String, mode: String) -> Leg? {
+        legs["\(from)-\(to)-\(mode)"]
     }
 }
 
