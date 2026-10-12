@@ -13,7 +13,10 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 - The map of a day: the route coloured by the way of moving where segments exist, the raw route
   where not, a dot with the time spent at each stop, a day stepper and the list of days.
 - The Status screen: the tracking switch, the last fix, the counts and the recent events; in a
-  Debug build, a demo month to look at and a button to remove it.
+  Debug build, a demo month to look at and a button to remove it. The demo month runs over
+  Warsaw's real streets (Apple Maps routes between home, the Old Town, the Vistula, Łomianki,
+  the office, Złote Tarasy, Kinoteka, Łazienki and Hala Koszyki), sampled as the recorder
+  keeps fixes.
 
 ### Internal
 
