@@ -12,6 +12,10 @@ enum RecorderEvent: Sendable, Equatable {
     case coarseModeEntered(reason: String)
     case coarseModeLeft
     case authorizationChanged(String)
+    case activityUpdatesStarted
+    case activityUpdatesStopped
+    case activityBackfilled(count: Int)
+    case stepsQueried(steps: Int?)
     case error(String)
 
     var text: String {
@@ -26,6 +30,10 @@ enum RecorderEvent: Sendable, Equatable {
         case .coarseModeEntered(let reason): "coarse mode entered (\(reason))"
         case .coarseModeLeft: "coarse mode left"
         case .authorizationChanged(let status): "authorization \(status)"
+        case .activityUpdatesStarted: "activity updates started"
+        case .activityUpdatesStopped: "activity updates stopped"
+        case .activityBackfilled(let count): "activity back-filled on \(count) points"
+        case .stepsQueried(let steps): "pedometer: \(steps.map(String.init) ?? "no") steps"
         case .error(let message): "error: \(message)"
         }
     }

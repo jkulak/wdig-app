@@ -71,6 +71,16 @@
         }
       }
     },
+    "Motion & Fitness": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ruch i sprawność"
+          }
+        }
+      }
+    },
     "Never": {
       "localizations": {
         "pl": {

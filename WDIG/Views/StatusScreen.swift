@@ -23,7 +23,8 @@ struct StatusScreen: View {
                     LabeledContent("Points today", value: hub.pointsToday, format: .number)
                     LabeledContent("Points total", value: hub.pointsTotal, format: .number)
                     LabeledContent("Location", value: hub.authorization)
-                    if hub.authorization != "always" {
+                    LabeledContent("Motion & Fitness", value: hub.motionAuthorization)
+                    if hub.authorization != "always" || hub.motionAuthorization == "denied" {
                         Button("Open Settings") {
                             hub.openSystemSettings()
                         }

@@ -30,8 +30,13 @@ actor LocationRecorder {
     static let flushSeconds: Double = 60
 
     private let store: RecorderStore
+    private let activitySource: any ActivityProviding
+    private let stepsSource: any StepsProviding
     private let logger = Logger(subsystem: "com.jkulak.wdig", category: "recorder")
     private var settings: RecorderSettings
+    private var timeline = ActivityTimeline()
+    private var desiredKind: MovementKind?
+    private var desiredSince: Date?
     private(set) var phase: Phase = .off
     private var deviceId: UUID?
     private var session: CLServiceSession?
@@ -50,9 +55,15 @@ actor LocationRecorder {
     private var power: PowerSnapshot = .unknown
     private var recentEvents: [RecorderEventRecord] = []
 
-    init(store: RecorderStore, settings: RecorderSettings = .load()) {
+    init(
+        store: RecorderStore, settings: RecorderSettings = .load(),
+        activitySource: any ActivityProviding = CoreMotionActivitySource(),
+        stepsSource: any StepsProviding = PedometerStepsSource()
+    ) {
         self.store = store
         self.settings = settings
+        self.activitySource = activitySource
+        self.stepsSource = stepsSource
     }
 
     // MARK: - Control
@@ -103,6 +114,11 @@ actor LocationRecorder {
                 await self?.note(.error("monitor: \(error.localizedDescription)"))
             }
         }
+        activitySource.startUpdates { [weak self] sample in
+            Task { await self?.activityChanged(sample) }
+        }
+        note(.activityUpdatesStarted)
+        Task { [weak self] in await self?.backfillActivity() }
         note(.started(trigger: trigger))
         if PowerPolicy.wantsCoarse(power) {
             await enterCoarse(reason: PowerPolicy.reason(power))
@@ -131,9 +147,61 @@ actor LocationRecorder {
         session?.invalidate()
         session = nil
         monitor = nil
+        activitySource.stopUpdates()
+        note(.activityUpdatesStopped)
         phase = .off
         await flush()
         note(.stopped)
+    }
+
+    /// The app came to the front: the classes Core Motion kept while the process was away
+    /// fill the points recorded without one.
+    func foregrounded() async {
+        guard phase != .off else { return }
+        await backfillActivity()
+    }
+
+    func motionAuthorization() -> MotionAuthorization {
+        activitySource.authorization
+    }
+
+    // MARK: - Motion classes and steps
+
+    func activityChanged(_ sample: ActivitySample) {
+        timeline.add(sample)
+        let desired = ActivityCode.kind(for: sample.code)
+        if desired != desiredKind {
+            desiredKind = desired
+            desiredSince = sample.startDate
+        }
+    }
+
+    private func backfillActivity() async {
+        let lastStamped = try? await store.latestStampedPointDate()
+        let range = BackfillPolicy.range(lastStamped: lastStamped, now: Date())
+        do {
+            let samples = try await activitySource.history(from: range.from, to: range.to)
+            if let last = samples.last {
+                timeline.add(last)
+            }
+            let count = try await store.restampActivity(from: range.from, to: range.to, samples: samples)
+            note(.activityBackfilled(count: count))
+        } catch {
+            note(.error("activity history: \(error.localizedDescription)"))
+        }
+    }
+
+    /// The pedometer's count for a closed trip, when it is young enough to be known.
+    func steps(from start: Date, to end: Date) async -> Int? {
+        guard StepsPolicy.canQuery(startAt: start, now: Date()) else { return nil }
+        do {
+            let steps = try await stepsSource.steps(from: start, to: end)
+            note(.stepsQueried(steps: steps))
+            return steps
+        } catch {
+            note(.error("pedometer: \(error.localizedDescription)"))
+            return nil
+        }
     }
 
     func powerChanged(_ snapshot: PowerSnapshot) async {
@@ -204,7 +272,14 @@ actor LocationRecorder {
         speeds.append((at: now, speed: fix.speed))
         speeds.removeAll { now.timeIntervalSince($0.at) > settings.classHoldSeconds * 2 }
         await keep(fix, kind: kind, source: "phone", coarse: false)
-        let next = LiveKindPolicy.kind(current: kind, speeds: speeds, now: now, holdSeconds: settings.classHoldSeconds)
+        let next: MovementKind
+        if activitySource.authorization == .authorized {
+            next = ClassKindPolicy.kind(
+                current: kind, desired: desiredKind, desiredSince: desiredSince, now: now,
+                holdSeconds: settings.classHoldSeconds)
+        } else {
+            next = LiveKindPolicy.kind(current: kind, speeds: speeds, now: now, holdSeconds: settings.classHoldSeconds)
+        }
         if next != kind {
             note(.configurationChanged(from: kind, to: next))
             startLive(next)
@@ -338,9 +413,12 @@ actor LocationRecorder {
         lastKept = fix
         recentKept.append(fix)
         recentKept.removeAll { fix.timestamp.timeIntervalSince($0.timestamp) > settings.referenceWindowSeconds }
-        pending.append(
-            fix.sample(
-                deviceId: deviceId, source: source, coarse: coarse, power: power, tz: TimeZone.current.identifier))
+        var sample = fix.sample(
+            deviceId: deviceId, source: source, coarse: coarse, power: power, tz: TimeZone.current.identifier)
+        let activity = timeline.sample(at: fix.timestamp)
+        sample.activity = activity.code
+        sample.activityConf = activity.confidence
+        pending.append(sample)
         if pending.count >= Self.flushCount {
             await flush()
         } else if flushTask == nil {

@@ -50,6 +50,18 @@ enum LiveKindPolicy {
     }
 }
 
+/// The live configuration from the motion class, which wins over the speed heuristic when it
+/// is known: a switch needs the class to have held for the hold time, so a red light's
+/// `stationary` or a sprint's `running` does not flip it.
+enum ClassKindPolicy {
+    static func kind(current: MovementKind, desired: MovementKind?, desiredSince: Date?, now: Date, holdSeconds: Double)
+        -> MovementKind
+    {
+        guard let desired, desired != current, let desiredSince else { return current }
+        return now.timeIntervalSince(desiredSince) >= holdSeconds ? desired : current
+    }
+}
+
 /// The reference position of a stop and the test for leaving it.
 enum WarmPhase {
     /// The median of the fixes kept in the reference window before the stop, or the stop fix itself.

@@ -28,6 +28,7 @@ final class RecorderHub {
     private(set) var pointsToday = 0
     private(set) var pointsTotal = 0
     private(set) var authorization = "unknown"
+    private(set) var motionAuthorization = "unknown"
     private(set) var events: [RecorderEventRecord] = []
     private(set) var storeError: String?
 
@@ -69,7 +70,10 @@ final class RecorderHub {
     }
 
     func sceneBecameActive() {
-        Task { await refresh() }
+        Task {
+            await recorder.foregrounded()
+            await refresh()
+        }
     }
 
     private func apply() async {
@@ -89,6 +93,7 @@ final class RecorderHub {
         phaseText = await recorder.currentPhase().text
         events = Array(await recorder.events().suffix(30).reversed())
         authorization = LocationBridges.shared.authorizationStatus.text
+        motionAuthorization = await recorder.motionAuthorization().rawValue
     }
 
     private func startRefreshing() {

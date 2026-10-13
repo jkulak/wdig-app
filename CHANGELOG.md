@@ -7,6 +7,9 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Added
 
+- Motion classes on every point (walking, running, cycling, automotive, stationary, with a
+  confidence) from Core Motion, filled in afterwards for the minutes the app was away, and the
+  live configuration chosen by the class instead of by speed; the pedometer's steps for a trip.
 - Background location recording within the battery budget: live updates only while moving, a
   ten-minute warm phase and a geofence after a stop, wake-ups on a fence exit or a significant
   change, coarse mode in Low Power Mode or under 20 % battery.
