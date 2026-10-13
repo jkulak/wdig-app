@@ -49,7 +49,7 @@ final class RecorderHub {
         }
         storeError = error
         store = RecorderStore(modelContainer: container)
-        recorder = LocationRecorder(store: store)
+        recorder = LocationRecorder(store: store, locationSource: LocationBridges.shared, clock: ContinuousClock())
         segmentation = SegmentationRunner(store: store, recorder: recorder)
         diagnostics = DiagnosticsLog(store: store)
         trackingEnabled = UserDefaults.standard.bool(forKey: Self.trackingKey)

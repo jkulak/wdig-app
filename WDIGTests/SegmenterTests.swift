@@ -239,7 +239,8 @@ struct SegmentationRunnerTests {
         try await store.append(own)
         try await store.append(fixture.points)  // the fixture's own device: another device's points
         let recorder = LocationRecorder(
-            store: store, activitySource: FakeActivitySource(), stepsSource: FakeStepsSource())
+            store: store, locationSource: FakeLocationSource(), clock: ContinuousClock(),
+            activitySource: FakeActivitySource(), stepsSource: FakeStepsSource())
         let runner = SegmentationRunner(store: store, recorder: recorder)
         await runner.run()
         let day = LocalDay.key(for: Fixture.t0, tz: "Europe/Warsaw")

@@ -39,6 +39,9 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Internal
 
+- The recorder takes its clock and Core Location through its initialiser: `ContinuousClock` and
+  `LocationBridges` in the app, a hand-moved clock and a fake in the unit tests, which now drive
+  the warm phase, coarse mode and a launch without Core Location in the test run.
 - The battery protocol, `docs/battery-protocol.md`: how a week on the phone measures the
   recorder against its 8-10 % a day, with every reading's path in Settings and the tuning
   ladder for a FAIL; `docs/battery-results.md` holds the rows.
