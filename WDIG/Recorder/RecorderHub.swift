@@ -14,6 +14,7 @@ final class RecorderHub {
 
     let store: RecorderStore
     private let recorder: LocationRecorder
+    let segmentation: SegmentationRunner
     private var powerObserver: PowerObserver?
     private var refreshTask: Task<Void, Never>?
 
@@ -45,7 +46,11 @@ final class RecorderHub {
         storeError = error
         store = RecorderStore(modelContainer: container)
         recorder = LocationRecorder(store: store)
+        segmentation = SegmentationRunner(store: store, recorder: recorder)
         trackingEnabled = UserDefaults.standard.bool(forKey: Self.trackingKey)
+        Task { [recorder, segmentation] in
+            await recorder.setAfterFlush { await segmentation.run() }
+        }
         powerObserver = PowerObserver { [recorder] snapshot in
             Task { await recorder.powerChanged(snapshot) }
         }
@@ -72,6 +77,7 @@ final class RecorderHub {
     func sceneBecameActive() {
         Task {
             await recorder.foregrounded()
+            await segmentation.run()
             await refresh()
         }
     }

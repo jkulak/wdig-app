@@ -7,6 +7,11 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Added
 
+- Segmentation on the phone: stops (five minutes within 75 m, at the median of their fixes),
+  trips between them with the way of moving voted from the motion classes, the speed as the
+  tie-breaker and the pedometer's cadence to tell a walk from a run, trains and flights by
+  heuristics, and dotted legs on the map where the recorder had no fixes. It runs after every
+  batch of points and when the app comes to the front; a real day now gets its colours and stops.
 - Motion classes on every point (walking, running, cycling, automotive, stationary, with a
   confidence) from Core Motion, filled in afterwards for the minutes the app was away, and the
   live configuration chosen by the class instead of by speed; the pedometer's steps for a trip.
