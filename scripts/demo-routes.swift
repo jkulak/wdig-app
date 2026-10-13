@@ -32,8 +32,8 @@ let places: [Place] = [
         key: "lomianki", name: "Łomianki", address: "Warszawska 73, Łomianki",
         fallback: .init(latitude: 52.3328, longitude: 20.8862)),
     Place(
-        key: "office", name: "Office", address: "Czerniakowska 71, Warszawa",
-        fallback: .init(latitude: 52.2165, longitude: 21.0435)),
+        key: "office", name: "Office", address: "Czerniakowska 87A, Warszawa",
+        fallback: .init(latitude: 52.2110, longitude: 21.0470)),
     Place(
         key: "zloteTarasy", name: "Złote Tarasy", address: "Złota 59, Warszawa",
         fallback: .init(latitude: 52.2297, longitude: 21.0028)),
