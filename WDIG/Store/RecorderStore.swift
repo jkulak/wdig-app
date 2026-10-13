@@ -218,6 +218,45 @@ actor RecorderStore {
 
     /// The day's row of the list: its points, and its phone segments counted on every day they
     /// touch, with a trip's distance split in proportion to the time on each side of midnight.
+    // MARK: - Diagnostics
+
+    func logDiagnostic(_ record: DiagnosticRecord) throws {
+        modelContext.insert(DiagnosticEvent(record))
+        try modelContext.save()
+    }
+
+    func diagnostics(onDay day: String) throws -> [DiagnosticRecord] {
+        var descriptor = FetchDescriptor<DiagnosticEvent>(predicate: #Predicate<DiagnosticEvent> { $0.localDay == day })
+        descriptor.sortBy = [SortDescriptor(\.at)]
+        return try modelContext.fetch(descriptor).map(DiagnosticRecord.init)
+    }
+
+    func diagnostics(from start: Date, to end: Date) throws -> [DiagnosticRecord] {
+        var descriptor = FetchDescriptor<DiagnosticEvent>(
+            predicate: #Predicate<DiagnosticEvent> { $0.at >= start && $0.at < end })
+        descriptor.sortBy = [SortDescriptor(\.at)]
+        return try modelContext.fetch(descriptor).map(DiagnosticRecord.init)
+    }
+
+    func pruneDiagnostics(olderThan cutoff: Date) throws -> Int {
+        let old = try modelContext.fetch(
+            FetchDescriptor<DiagnosticEvent>(predicate: #Predicate<DiagnosticEvent> { $0.at < cutoff }))
+        for event in old {
+            modelContext.delete(event)
+        }
+        try modelContext.save()
+        return old.count
+    }
+
+    /// When the kept fixes of a stretch were recorded, for the gap detector.
+    func pointTimes(from start: Date, to end: Date) throws -> [Date] {
+        var descriptor = FetchDescriptor<Point>(
+            predicate: #Predicate<Point> { $0.recordedAt >= start && $0.recordedAt < end })
+        descriptor.sortBy = [SortDescriptor(\.recordedAt)]
+        descriptor.propertiesToFetch = [\.recordedAt]
+        return try modelContext.fetch(descriptor).map(\.recordedAt)
+    }
+
     private func rebuildDaySummary(for day: String) throws {
         let count = try modelContext.fetchCount(
             FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.localDay == day }))

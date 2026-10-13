@@ -55,6 +55,7 @@ actor LocationRecorder {
     private var power: PowerSnapshot = .unknown
     private var recentEvents: [RecorderEventRecord] = []
     private var afterFlush: (@Sendable () async -> Void)?
+    private var eventSink: (@Sendable (RecorderEventRecord) -> Void)?
 
     init(
         store: RecorderStore, settings: RecorderSettings = .load(),
@@ -232,8 +233,15 @@ actor LocationRecorder {
         recentEvents
     }
 
+    /// Where every event goes besides the recent list: the diagnostics log.
+    func setEventSink(_ sink: @escaping @Sendable (RecorderEventRecord) -> Void) {
+        eventSink = sink
+    }
+
     func note(_ event: RecorderEvent) {
-        recentEvents.append(RecorderEventRecord(at: Date(), event: event))
+        let record = RecorderEventRecord(at: Date(), event: event)
+        recentEvents.append(record)
+        eventSink?(record)
         if recentEvents.count > 200 {
             recentEvents.removeFirst(recentEvents.count - 200)
         }
