@@ -39,6 +39,9 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Internal
 
+- The battery protocol, `docs/battery-protocol.md`: how a week on the phone measures the
+  recorder against its 8-10 % a day, with every reading's path in Settings and the tuning
+  ladder for a FAIL; `docs/battery-results.md` holds the rows.
 - The roads to the phone in the repository: `make phone` installs a Debug build over Wi-Fi and
   reports the build the phone has, `make testflight` archives, signs in the cloud and uploads
   once per commit from a clean `main`, `make testflight-status` reads App Store Connect; the
