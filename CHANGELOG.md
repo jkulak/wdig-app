@@ -39,6 +39,10 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Internal
 
+- The roads to the phone in the repository: `make phone` installs a Debug build over Wi-Fi and
+  reports the build the phone has, `make testflight` archives, signs in the cloud and uploads
+  once per commit from a clean `main`, `make testflight-status` reads App Store Connect; the
+  paperwork, the Test Information and the review note in `docs/testflight.md`.
 - The SwiftData store mirroring the backend's tables, with one actor writing and reading.
 
 - The Xcode project: SwiftUI app and unit-test target, the String Catalog in English and Polish,
