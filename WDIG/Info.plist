@@ -28,6 +28,8 @@
 	<string>WDIG records where you are through the day, also when the app is closed, to draw your day's route and the places you stopped. Choose Always so recording does not stop when you put the phone away.</string>
 	<key>NSLocationWhenInUseUsageDescription</key>
 	<string>WDIG needs your location to draw your route on the map.</string>
+	<key>NSMotionUsageDescription</key>
+	<string>WDIG uses motion data to tell walking, running, cycling and driving apart and to count steps on foot.</string>
 	<key>UIApplicationSceneManifest</key>
 	<dict>
 		<key>UIApplicationSupportsMultipleScenes</key>

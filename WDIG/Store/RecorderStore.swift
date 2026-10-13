@@ -60,6 +60,40 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(SegmentSnapshot.init)
     }
 
+    /// The time of the newest point that carries a motion class, the back-fill's starting point.
+    func latestStampedPointDate() throws -> Date? {
+        var descriptor = FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.activityConf > 0 })
+        descriptor.sortBy = [SortDescriptor(\.recordedAt, order: .reverse)]
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.recordedAt
+    }
+
+    /// Stamps the points of the range that have no class yet and were not uploaded with the
+    /// class in force at their time; returns how many changed.
+    func restampActivity(from start: Date, to end: Date, samples: [ActivitySample]) throws -> Int {
+        guard !samples.isEmpty else { return 0 }
+        var timeline = ActivityTimeline()
+        for sample in samples.sorted(by: { $0.startDate < $1.startDate }) {
+            timeline.add(sample)
+        }
+        let descriptor = FetchDescriptor<Point>(
+            predicate: #Predicate<Point> {
+                $0.recordedAt >= start && $0.recordedAt <= end && $0.activityConf == 0 && $0.uploadBatchId == nil
+            })
+        var changed = 0
+        for point in try modelContext.fetch(descriptor) {
+            let sample = timeline.sample(at: point.recordedAt)
+            guard sample.code != ActivityCode.unknown || sample.confidence > 0 else { continue }
+            point.activity = sample.code
+            point.activityConf = sample.confidence
+            changed += 1
+        }
+        if changed > 0 {
+            try modelContext.save()
+        }
+        return changed
+    }
+
     /// Writes a segment as computed; a row with the same id is replaced.
     func upsert(_ snapshot: SegmentSnapshot) throws {
         modelContext.insert(Segment(snapshot))
