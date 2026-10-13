@@ -54,6 +54,7 @@ actor LocationRecorder {
     private var pending: [PointSample] = []
     private var power: PowerSnapshot = .unknown
     private var recentEvents: [RecorderEventRecord] = []
+    private var afterFlush: (@Sendable () async -> Void)?
 
     init(
         store: RecorderStore, settings: RecorderSettings = .load(),
@@ -216,6 +217,11 @@ actor LocationRecorder {
 
     func updateSettings(_ newSettings: RecorderSettings) {
         settings = newSettings
+    }
+
+    /// What runs once a batch of points is in the store: the segmenter.
+    func setAfterFlush(_ work: @escaping @Sendable () async -> Void) {
+        afterFlush = work
     }
 
     func currentPhase() -> Phase {
@@ -438,6 +444,9 @@ actor LocationRecorder {
         pending = []
         do {
             try await store.append(batch)
+            if let afterFlush {
+                Task { await afterFlush() }
+            }
         } catch {
             pending.insert(contentsOf: batch, at: 0)
             note(.error("store: \(error.localizedDescription)"))

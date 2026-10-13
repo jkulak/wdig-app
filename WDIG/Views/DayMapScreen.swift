@@ -16,6 +16,10 @@ struct DayMapScreen: View {
                     MapPolyline(coordinates: line.coordinates)
                         .stroke(line.color, lineWidth: 4)
                 }
+                ForEach(model.dotted) { line in
+                    MapPolyline(coordinates: line.coordinates)
+                        .stroke(line.color, style: StrokeStyle(lineWidth: 3, dash: [6, 6]))
+                }
                 ForEach(model.stops) { stop in
                     Annotation(stop.label, coordinate: stop.coordinate, anchor: .center) {
                         Circle()
@@ -118,6 +122,7 @@ final class DayMapModel {
     let tz = TimeZone.current.identifier
     private(set) var day: String
     private(set) var lines: [Line] = []
+    private(set) var dotted: [Line] = []
     private(set) var stops: [Stop] = []
     private(set) var region: MKCoordinateRegion?
     private(set) var days: [DaySummarySnapshot] = []
@@ -156,15 +161,44 @@ final class DayMapModel {
         let points = ((try? await store.points(onDay: day)) ?? []).filter { $0.hAccM <= 100 }
         let segments = (try? await store.segments(overlappingDay: day, tz: tz)) ?? []
         var lines: [Line] = []
+        var dotted: [Line] = []
         var used = Set<Date>()
-        for segment in segments where segment.kind == "trip" {
-            let inside = points.filter { $0.recordedAt >= segment.startAt && $0.recordedAt <= segment.endAt }
-            guard inside.count >= 2 else { continue }
-            inside.forEach { used.insert($0.recordedAt) }
-            lines.append(
-                Line(
-                    id: segment.id, coordinates: inside.map(\.locationCoordinate),
-                    color: ModeTypePalette.color(for: segment.modeType)))
+        let settings = SegmentationSettings.load()
+        let drafts = segments.map { segment -> SegmentDraft in
+            let inside =
+                segment.kind == "trip"
+                ? points.filter { $0.recordedAt >= segment.startAt && $0.recordedAt <= segment.endAt } : []
+            return SegmentDraft(
+                kind: segment.kind, startAt: segment.startAt, endAt: segment.endAt, tz: segment.tz,
+                modeDetected: segment.modeDetected, modeConf: segment.modeConf, modeType: segment.modeType,
+                distanceM: segment.distanceM, pointCount: segment.pointCount, centerLat: segment.centerLat,
+                centerLon: segment.centerLon, source: segment.source, coarse: segment.coarse, points: inside)
+        }
+        for (index, draft) in drafts.enumerated() where draft.kind == "trip" {
+            let color = ModeTypePalette.color(for: draft.modeType)
+            let previous = index > 0 && drafts[index - 1].kind == "stop" ? drafts[index - 1] : nil
+            let next = index + 1 < drafts.count && drafts[index + 1].kind == "stop" ? drafts[index + 1] : nil
+            draft.points.forEach { used.insert($0.recordedAt) }
+            var run: [CLLocationCoordinate2D] = []
+            for leg in Segmenter.legs(for: draft, after: previous, before: next, settings: settings) {
+                let from = CLLocationCoordinate2D(latitude: leg.from.latitude, longitude: leg.from.longitude)
+                let to = CLLocationCoordinate2D(latitude: leg.to.latitude, longitude: leg.to.longitude)
+                if leg.dotted {
+                    if run.count >= 2 {
+                        lines.append(Line(id: UUID(), coordinates: run, color: color))
+                    }
+                    run = []
+                    dotted.append(Line(id: UUID(), coordinates: [from, to], color: color.opacity(0.6)))
+                } else {
+                    if run.isEmpty {
+                        run.append(from)
+                    }
+                    run.append(to)
+                }
+            }
+            if run.count >= 2 {
+                lines.append(Line(id: UUID(), coordinates: run, color: color))
+            }
         }
         let rest = points.filter { !used.contains($0.recordedAt) }
         if rest.count >= 2 {
@@ -172,6 +206,7 @@ final class DayMapModel {
                 Line(id: UUID(), coordinates: rest.map(\.locationCoordinate), color: ModeTypePalette.unsegmented))
         }
         self.lines = lines
+        self.dotted = dotted
         stops = segments.filter { $0.kind == "stop" }.compactMap { segment in
             guard let lat = segment.centerLat, let lon = segment.centerLon else { return nil }
             let coordinate = CLLocationCoordinate2D(

@@ -86,6 +86,13 @@ struct SegmentSnapshot: Sendable, Equatable {
     var updatedAt: Date
     var deletedAt: Date?
 
+    /// A stop's position in degrees; nil for a trip.
+    var center: Coordinate? {
+        guard let centerLat, let centerLon else { return nil }
+        return Coordinate(
+            latitude: Double(centerLat) / PointSample.scale, longitude: Double(centerLon) / PointSample.scale)
+    }
+
     init(_ segment: Segment) {
         id = segment.id
         deviceId = segment.deviceId
