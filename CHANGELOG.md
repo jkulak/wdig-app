@@ -7,6 +7,9 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Added
 
+- A day exported as GPX from the map's share button: one track with a segment per trip, a
+  waypoint per stop, and WDIG's own fields in the `wdig:` namespace, so the file opens in
+  any map tool and loses nothing for ours.
 - Segmentation on the phone: stops (five minutes within 75 m, at the median of their fixes),
   trips between them with the way of moving voted from the motion classes, the speed as the
   tie-breaker and the pedometer's cadence to tell a walk from a run, trains and flights by

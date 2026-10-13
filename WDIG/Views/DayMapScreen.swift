@@ -58,6 +58,14 @@ struct DayMapScreen: View {
                         showingDays = true
                     }
                 }
+                ToolbarItem(placement: .bottomBar) {
+                    ShareLink(
+                        item: DayExport(day: model.day, tz: model.tz), preview: SharePreview("WDIG \(model.day)")
+                    ) {
+                        Label("Share the day as GPX", systemImage: "square.and.arrow.up")
+                    }
+                    .disabled(model.lines.isEmpty && model.stops.isEmpty)
+                }
             }
             .sheet(isPresented: $showingDays) {
                 DaysList(days: model.days) { day in

@@ -11,6 +11,7 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         let trigger = LaunchTrigger.from(applicationState: application.applicationState)
         LaunchTrigger.current = trigger
         RecorderHub.shared.launched(trigger: trigger)
+        GPXDayExporter.cleanUp()
         return true
     }
 }

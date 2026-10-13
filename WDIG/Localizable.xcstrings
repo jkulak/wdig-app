@@ -191,6 +191,16 @@
         }
       }
     },
+    "Share the day as GPX": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij dzień jako GPX"
+          }
+        }
+      }
+    },
     "State": {
       "localizations": {
         "pl": {
