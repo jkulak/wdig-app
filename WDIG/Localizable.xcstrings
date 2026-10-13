@@ -11,6 +11,46 @@
         }
       }
     },
+    "All": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Wszystkie"
+          }
+        }
+      }
+    },
+    "Class hold: %lld s": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Utrzymanie klasy: %lld s"
+          }
+        }
+      }
+    },
+    "Coarse mode · Low Power Mode": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryb zgrubny · tryb niskiego zużycia energii"
+          }
+        }
+      }
+    },
+    "Coarse mode · battery %@": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Tryb zgrubny · bateria %@"
+          }
+        }
+      }
+    },
     "Days": {
       "localizations": {
         "pl": {
@@ -31,12 +71,72 @@
         }
       }
     },
+    "Diagnostics": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Diagnostyka"
+          }
+        }
+      }
+    },
+    "Events": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zdarzenia"
+          }
+        }
+      }
+    },
+    "Export diagnostics": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Eksportuj diagnostykę"
+          }
+        }
+      }
+    },
+    "Fence radius: %lld m": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Promień ogrodzenia: %lld m"
+          }
+        }
+      }
+    },
+    "Gap: %lld h": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Luka: %lld h"
+          }
+        }
+      }
+    },
     "Generate a demo month": {
       "localizations": {
         "pl": {
           "stringUnit": {
             "state": "translated",
             "value": "Wygeneruj miesiąc demo"
+          }
+        }
+      }
+    },
+    "Kind": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rodzaj"
           }
         }
       }
@@ -61,12 +161,42 @@
         }
       }
     },
+    "Location off for WDIG, tap to open Settings": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokalizacja wyłączona dla WDIG, dotknij, by otworzyć Ustawienia"
+          }
+        }
+      }
+    },
+    "Location: While Using, tap to allow Always": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Lokalizacja: tylko podczas używania, dotknij, by zezwolić zawsze"
+          }
+        }
+      }
+    },
     "Map": {
       "localizations": {
         "pl": {
           "stringUnit": {
             "state": "translated",
             "value": "Mapa"
+          }
+        }
+      }
+    },
+    "Minutes in coarse mode": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Minuty w trybie zgrubnym"
           }
         }
       }
@@ -131,12 +261,32 @@
         }
       }
     },
+    "No fixes between %@ and %@": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Brak punktów między %@ a %@"
+          }
+        }
+      }
+    },
     "Open Settings": {
       "localizations": {
         "pl": {
           "stringUnit": {
             "state": "translated",
             "value": "Otwórz Ustawienia"
+          }
+        }
+      }
+    },
+    "Points kept": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Zapisane punkty"
           }
         }
       }
@@ -181,12 +331,42 @@
         }
       }
     },
+    "Relaunches": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Ponowne uruchomienia"
+          }
+        }
+      }
+    },
     "Remove demo data": {
       "localizations": {
         "pl": {
           "stringUnit": {
             "state": "translated",
             "value": "Usuń dane demo"
+          }
+        }
+      }
+    },
+    "Reset to defaults": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Przywróć domyślne"
+          }
+        }
+      }
+    },
+    "Share %@": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Udostępnij %@"
           }
         }
       }
@@ -221,6 +401,16 @@
         }
       }
     },
+    "Stop radius: %lld m": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Promień postoju: %lld m"
+          }
+        }
+      }
+    },
     "Tracking": {
       "localizations": {
         "pl": {
@@ -231,8 +421,68 @@
         }
       }
     },
+    "Tracking off": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Śledzenie wyłączone"
+          }
+        }
+      }
+    },
+    "Tracking on · last fix %@, %lld min ago": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Śledzenie włączone · ostatni punkt %@, %lld min temu"
+          }
+        }
+      }
+    },
+    "Tracking on · no fix yet": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Śledzenie włączone · jeszcze brak punktu"
+          }
+        }
+      }
+    },
+    "Tuning (Debug)": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Strojenie (Debug)"
+          }
+        }
+      }
+    },
     "WDIG": {
       "shouldTranslate": false
+    },
+    "Warm phase: %lld s": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Faza ciepła: %lld s"
+          }
+        }
+      }
+    },
+    "Warm phases": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Fazy ciepłe"
+          }
+        }
+      }
     },
     "Working…": {
       "localizations": {

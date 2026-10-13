@@ -4,7 +4,7 @@ import SwiftData
 /// The one container of the app. The store file sits in Application Support and goes
 /// into device backups; nothing in it is ever purged, raw points are kept for good.
 enum Store {
-    static let schema = Schema(versionedSchema: StoreSchemaV1.self)
+    static let schema = Schema(versionedSchema: StoreSchemaV2.self)
 
     /// The store on disk, or one in memory for tests.
     static func container(inMemory: Bool = false) throws -> ModelContainer {

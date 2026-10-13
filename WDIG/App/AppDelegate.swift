@@ -14,4 +14,8 @@ final class AppDelegate: NSObject, UIApplicationDelegate {
         GPXDayExporter.cleanUp()
         return true
     }
+
+    func applicationWillTerminate(_ application: UIApplication) {
+        RecorderHub.shared.willTerminate()
+    }
 }

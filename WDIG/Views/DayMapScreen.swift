@@ -8,6 +8,7 @@ struct DayMapScreen: View {
     @State private var model = DayMapModel()
     @State private var camera: MapCameraPosition = .automatic
     @State private var showingDays = false
+    @State private var showingDiagnostics = false
 
     var body: some View {
         NavigationStack {
@@ -30,6 +31,12 @@ struct DayMapScreen: View {
                 }
             }
             .mapStyle(.standard(emphasis: .muted))
+            .safeAreaInset(edge: .top, spacing: 0) {
+                StatusBanner(showDiagnostics: $showingDiagnostics)
+            }
+            .navigationDestination(isPresented: $showingDiagnostics) {
+                DiagnosticsScreen()
+            }
             .overlay(alignment: .bottom) {
                 if model.lines.isEmpty, model.stops.isEmpty {
                     Text("No data for this day")

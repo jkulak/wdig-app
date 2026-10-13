@@ -7,6 +7,14 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
 
 ### Added
 
+- A status banner over the map: tracking on with the time of the last fix, tracking off,
+  the permission to fix with a tap into Settings, coarse mode with its reason, or a daytime
+  hole in the fixes; tapping it opens the diagnostics.
+- The diagnostics log: every recorder event, launch, kill, gap and settings change with the
+  battery, the thermal state and the app's state at that moment, kept thirty days and never
+  a position; a screen with a day's events, counts and a filter, and an export of the last
+  seven days as JSON Lines through the share sheet. In a Debug build the recorder's numbers
+  can be changed there without a build.
 - A day exported as GPX from the map's share button: one track with a segment per trip, a
   waypoint per stop, and WDIG's own fields in the `wdig:` namespace, so the file opens in
   any map tool and loses nothing for ours.

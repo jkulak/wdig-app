@@ -15,6 +15,8 @@ final class RecorderHub {
     let store: RecorderStore
     private let recorder: LocationRecorder
     let segmentation: SegmentationRunner
+    let diagnostics: DiagnosticsLog
+    private var gaps = GapTracker.load()
     private var powerObserver: PowerObserver?
     private var refreshTask: Task<Void, Never>?
 
@@ -25,6 +27,8 @@ final class RecorderHub {
         }
     }
     private(set) var phaseText = "off"
+    private(set) var phase: LocationRecorder.Phase = .off
+    private(set) var status: TrackingStatus = .off
     private(set) var lastFixAt: Date?
     private(set) var pointsToday = 0
     private(set) var pointsTotal = 0
@@ -47,9 +51,16 @@ final class RecorderHub {
         store = RecorderStore(modelContainer: container)
         recorder = LocationRecorder(store: store)
         segmentation = SegmentationRunner(store: store, recorder: recorder)
+        diagnostics = DiagnosticsLog(store: store)
         trackingEnabled = UserDefaults.standard.bool(forKey: Self.trackingKey)
-        Task { [recorder, segmentation] in
-            await recorder.setAfterFlush { await segmentation.run() }
+        Task { [recorder, segmentation, diagnostics] in
+            await recorder.setAfterFlush {
+                await segmentation.run()
+                await self.pointsFlushed()
+            }
+            await recorder.setEventSink { record in
+                Task { await diagnostics.log(record) }
+            }
         }
         powerObserver = PowerObserver { [recorder] snapshot in
             Task { await recorder.powerChanged(snapshot) }
@@ -67,19 +78,77 @@ final class RecorderHub {
     /// Called from the app delegate inside the launch, so a relaunch by Core Location
     /// resumes recording before any view exists.
     func launched(trigger: LaunchTrigger) {
-        if trackingEnabled {
-            let resume: ResumeTrigger = trigger == .background ? .launch : .user
-            Task { await recorder.start(trigger: resume, power: PowerObserver.current()) }
+        let resume: ResumeTrigger = trigger == .background ? .launch : .user
+        Task {
+            await diagnostics.launched(trigger: trigger)
+            if trackingEnabled {
+                await recorder.start(trigger: resume, power: PowerObserver.current())
+            }
+            await checkGaps()
         }
         startRefreshing()
+    }
+
+    func willTerminate() {
+        diagnostics.willTerminate()
     }
 
     func sceneBecameActive() {
         Task {
             await recorder.foregrounded()
             await segmentation.run()
+            await checkGaps()
             await refresh()
         }
+    }
+
+    private func pointsFlushed() async {
+        await checkGaps()
+        await refresh()
+    }
+
+    /// Looks for a daytime hole in the last two days, logs each new one once and keeps the
+    /// newest undismissed one for the banner.
+    func checkGaps() async {
+        let now = Date()
+        let tz = TimeZone.current.identifier
+        let since = now.addingTimeInterval(-48 * 3_600)
+        var moments = ((try? await store.pointTimes(from: since, to: now)) ?? []).map { GapDetector.Moment($0) }
+        moments += Self.moments(of: (try? await store.diagnostics(from: since, to: now)) ?? [])
+        if moments.isEmpty {
+            // Nothing for two days: the stretch since the last sign of life is the hole.
+            let lastPoint = (try? await store.lastPoint())?.recordedAt
+            let lastEvent = Self.moments(of: (try? await store.diagnostics(from: .distantPast, to: since)) ?? []).last
+            moments = [lastPoint.map { GapDetector.Moment($0) }, lastEvent].compactMap { $0 }
+        }
+        let found = GapDetector.gaps(moments: moments, now: now, tz: tz, settings: GapSettings.load())
+        for gap in gaps.update(with: found, now: now) {
+            await diagnostics.log(
+                "gapDetected", detail: "\(XMLOut.clock(gap.from, tz: tz)) - \(XMLOut.clock(gap.to, tz: tz))")
+        }
+        gaps.save()
+    }
+
+    private static func moments(of events: [DiagnosticRecord]) -> [GapDetector.Moment] {
+        events.filter { DiagnosticsLog.recorderKinds.contains($0.kind) }.map {
+            GapDetector.Moment($0.at, silenceExpected: DiagnosticsLog.silentKinds.contains($0.kind))
+        }
+    }
+
+    func dismissGap() {
+        guard let gap = gaps.dismiss() else { return }
+        gaps.save()
+        let tz = TimeZone.current.identifier
+        Task {
+            await diagnostics.log(
+                "gapDismissed", detail: "\(XMLOut.clock(gap.from, tz: tz)) - \(XMLOut.clock(gap.to, tz: tz))")
+            await refresh()
+        }
+    }
+
+    func settingsChanged(from old: RecorderSettings, to new: RecorderSettings) async {
+        await recorder.updateSettings(new)
+        await diagnostics.log("settingsChanged", detail: DiagnosticsLog.changes(from: old, to: new))
     }
 
     private func apply() async {
@@ -96,10 +165,15 @@ final class RecorderHub {
         pointsTotal = (try? await store.pointCount()) ?? 0
         pointsToday = (try? await store.pointCount(onDay: today)) ?? 0
         lastFixAt = (try? await store.lastPoint())?.recordedAt
-        phaseText = await recorder.currentPhase().text
+        phase = await recorder.currentPhase()
+        phaseText = phase.text
         events = Array(await recorder.events().suffix(30).reversed())
         authorization = LocationBridges.shared.authorizationStatus.text
         motionAuthorization = await recorder.motionAuthorization().rawValue
+        status = TrackingStatus.make(
+            trackingEnabled: trackingEnabled, authorization: authorization, phase: phase,
+            power: PowerObserver.current(),
+            lastFixAt: lastFixAt, openGap: gaps.open)
     }
 
     private func startRefreshing() {
