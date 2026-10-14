@@ -2,10 +2,11 @@ import CoreLocation
 import Foundation
 import os
 
-/// The recorder: everything that touches Core Location happens through this actor. It
-/// spends the battery budget on purpose: live updates only while moving, a short
-/// hundred-metre warm phase after a stop so a false stop costs little, nothing at all
-/// while the phone sits, and wake-ups iOS pays for (a geofence exit, a significant change).
+/// The recorder: every decision about Core Location is made in this actor, which drives it
+/// through `LocationProviding`. It spends the battery budget on purpose: live updates only
+/// while moving, a short hundred-metre warm phase after a stop so a false stop costs little,
+/// nothing at all while the phone sits, and wake-ups iOS pays for (a geofence exit, a
+/// significant change).
 actor LocationRecorder {
     enum Phase: Sendable, Equatable {
         case off
@@ -25,13 +26,18 @@ actor LocationRecorder {
         }
     }
 
-    static let fenceIdentifier = "stop"
     static let flushCount = 20
     static let flushSeconds: Double = 60
 
     private let store: RecorderStore
+    private let locationSource: any LocationProviding
     private let activitySource: any ActivityProviding
     private let stepsSource: any StepsProviding
+    /// What the recorder waits on: the warm timer and the flush timer. An existential rather
+    /// than a type parameter, so the hub, the runner and the bridges hold a recorder without
+    /// becoming generic over two sleep calls. The moments the recorder writes down stay
+    /// `Date`s: they are compared with Core Location's and Core Motion's, which no `Clock` gives.
+    private let clock: any Clock<Duration>
     private let logger = Logger(subsystem: "com.jkulak.wdig", category: "recorder")
     private var settings: RecorderSettings
     private var timeline = ActivityTimeline()
@@ -39,12 +45,8 @@ actor LocationRecorder {
     private var desiredSince: Date?
     private(set) var phase: Phase = .off
     private var deviceId: UUID?
-    private var session: CLServiceSession?
-    private var diagnosticsTask: Task<Void, Never>?
     private var liveTask: Task<Void, Never>?
     private var warmTimer: Task<Void, Never>?
-    private var monitor: CLMonitor?
-    private var monitorTask: Task<Void, Never>?
     private var flushTask: Task<Void, Never>?
     private var lastKept: Fix?
     private var recentKept: [Fix] = []
@@ -58,11 +60,13 @@ actor LocationRecorder {
     private var eventSink: (@Sendable (RecorderEventRecord) -> Void)?
 
     init(
-        store: RecorderStore, settings: RecorderSettings = .load(),
-        activitySource: any ActivityProviding = CoreMotionActivitySource(),
+        store: RecorderStore, locationSource: any LocationProviding, clock: any Clock<Duration>,
+        settings: RecorderSettings = .load(), activitySource: any ActivityProviding = CoreMotionActivitySource(),
         stepsSource: any StepsProviding = PedometerStepsSource()
     ) {
         self.store = store
+        self.locationSource = locationSource
+        self.clock = clock
         self.settings = settings
         self.activitySource = activitySource
         self.stepsSource = stepsSource
@@ -79,43 +83,7 @@ actor LocationRecorder {
             note(.error("store: \(error.localizedDescription)"))
             return
         }
-        await MainActor.run {
-            LocationBridges.shared.recorder = self
-            LocationBridges.shared.background.startSignificantChanges()
-        }
-        let session = CLServiceSession(authorization: .always)
-        self.session = session
-        diagnosticsTask = Task { [weak self] in
-            do {
-                for try await diagnostic in session.diagnostics {
-                    guard let self else { return }
-                    if diagnostic.authorizationDenied || diagnostic.authorizationDeniedGlobally {
-                        await self.note(.error("location authorization denied"))
-                    } else if diagnostic.alwaysAuthorizationDenied {
-                        await self.note(.error("always authorization denied, while-using only"))
-                    } else if diagnostic.authorizationRestricted {
-                        await self.note(.error("location restricted"))
-                    }
-                }
-            } catch {
-                await self?.note(.error("session diagnostics: \(error.localizedDescription)"))
-            }
-        }
-        let monitor = await CLMonitor("WDIGRecorder")
-        self.monitor = monitor
-        if await monitor.identifiers.contains(Self.fenceIdentifier) {
-            await monitor.remove(Self.fenceIdentifier)
-        }
-        monitorTask = Task { [weak self] in
-            do {
-                for try await event in await monitor.events {
-                    guard let self else { return }
-                    await self.monitorEvent(identifier: event.identifier, state: event.state)
-                }
-            } catch {
-                await self?.note(.error("monitor: \(error.localizedDescription)"))
-            }
-        }
+        await locationSource.start(for: self)
         activitySource.startUpdates { [weak self] sample in
             Task { await self?.activityChanged(sample) }
         }
@@ -135,20 +103,8 @@ actor LocationRecorder {
         liveTask = nil
         warmTimer?.cancel()
         warmTimer = nil
-        diagnosticsTask?.cancel()
-        diagnosticsTask = nil
-        monitorTask?.cancel()
-        monitorTask = nil
         await removeFence()
-        await MainActor.run {
-            let bridges = LocationBridges.shared
-            bridges.warm.stop()
-            bridges.background.stopVisits()
-            bridges.background.stopSignificantChanges()
-        }
-        session?.invalidate()
-        session = nil
-        monitor = nil
+        await locationSource.stop()
         activitySource.stopUpdates()
         note(.activityUpdatesStopped)
         phase = .off
@@ -187,7 +143,7 @@ actor LocationRecorder {
                 timeline.add(last)
             }
             let count = try await store.restampActivity(from: range.from, to: range.to, samples: samples)
-            note(.activityBackfilled(count: count))
+            note(.activityBackfilled(from: range.from, to: range.to, count: count))
         } catch {
             note(.error("activity history: \(error.localizedDescription)"))
         }
@@ -253,10 +209,9 @@ actor LocationRecorder {
     private func startLive(_ kind: MovementKind) {
         liveTask?.cancel()
         phase = .live(kind)
-        let configuration: CLLocationUpdate.LiveConfiguration = kind == .vehicle ? .otherNavigation : .fitness
-        liveTask = Task { [weak self] in
+        liveTask = Task { [weak self, locationSource] in
             do {
-                for try await update in CLLocationUpdate.liveUpdates(configuration) {
+                for try await update in await locationSource.liveUpdates(kind) {
                     if Task.isCancelled { return }
                     guard let self else { return }
                     await self.handle(update)
@@ -269,19 +224,18 @@ actor LocationRecorder {
         }
     }
 
-    private func handle(_ update: CLLocationUpdate) async {
+    private func handle(_ update: LiveUpdate) async {
         guard case .live(let kind) = phase else { return }
-        if update.authorizationDenied || update.authorizationDeniedGlobally {
+        if update.authorizationDenied {
             note(.error("live updates: authorization denied"))
             return
         }
         if update.stationary {
             note(.stationary)
-            await beginWarmPhase(stationary: update.location.map(Fix.init))
+            await beginWarmPhase(stationary: update.fix)
             return
         }
-        guard let location = update.location else { return }
-        let fix = Fix(location)
+        guard let fix = update.fix else { return }
         let now = fix.timestamp
         speeds.append((at: now, speed: fix.speed))
         speeds.removeAll { now.timeIntervalSince($0.at) > settings.classHoldSeconds * 2 }
@@ -310,10 +264,10 @@ actor LocationRecorder {
         reference = WarmPhase.reference(
             recent: recentKept, stationary: stationary, now: now, windowSeconds: settings.referenceWindowSeconds)
         note(.warmPhaseBegan)
-        await MainActor.run { LocationBridges.shared.warm.start() }
+        await locationSource.startWarm()
         let seconds = settings.warmPhaseSeconds
-        warmTimer = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(seconds))
+        warmTimer = Task { [weak self, clock] in
+            try? await clock.sleep(for: .seconds(seconds))
             guard !Task.isCancelled else { return }
             await self?.warmPhaseExpired()
         }
@@ -333,20 +287,19 @@ actor LocationRecorder {
 
     private func warmPhaseExpired() async {
         guard phase == .warm else { return }
-        await MainActor.run { LocationBridges.shared.warm.stop() }
+        await locationSource.stopWarm()
         phase = .asleep
-        if let reference, let monitor {
-            let center = CLLocationCoordinate2D(latitude: reference.latitude, longitude: reference.longitude)
-            let condition = CLMonitor.CircularGeographicCondition(center: center, radius: settings.fenceRadiusM)
-            await monitor.add(condition, identifier: Self.fenceIdentifier, assuming: .satisfied)
+        if let reference {
+            await locationSource.setFence(around: reference, radius: settings.fenceRadiusM)
             hasFence = true
         }
         note(.warmPhaseEnded)
         await flush()
     }
 
-    private func monitorEvent(identifier: String, state: CLMonitor.Event.State) async {
-        guard identifier == Self.fenceIdentifier, state == .unsatisfied, phase == .asleep else { return }
+    /// The fence around the stop was left: the sleeping recorder wakes.
+    func fenceExited() async {
+        guard phase == .asleep else { return }
         await resumeLive(trigger: .fenceExit)
     }
 
@@ -382,15 +335,15 @@ actor LocationRecorder {
     private func resumeLive(trigger: ResumeTrigger) async {
         warmTimer?.cancel()
         warmTimer = nil
-        await MainActor.run { LocationBridges.shared.warm.stop() }
+        await locationSource.stopWarm()
         await removeFence()
         note(.resumed(trigger: trigger))
         startLive(.foot)
     }
 
     private func removeFence() async {
-        guard hasFence, let monitor else { return }
-        await monitor.remove(Self.fenceIdentifier)
+        guard hasFence else { return }
+        await locationSource.removeFence()
         hasFence = false
     }
 
@@ -401,16 +354,16 @@ actor LocationRecorder {
         liveTask = nil
         warmTimer?.cancel()
         warmTimer = nil
-        await MainActor.run { LocationBridges.shared.warm.stop() }
+        await locationSource.stopWarm()
         await removeFence()
         phase = .coarse
-        await MainActor.run { LocationBridges.shared.background.startVisits() }
+        await locationSource.startVisits()
         note(.coarseModeEntered(reason: reason))
         await flush()
     }
 
     private func leaveCoarse() async {
-        await MainActor.run { LocationBridges.shared.background.stopVisits() }
+        await locationSource.stopVisits()
         note(.coarseModeLeft)
         startLive(.foot)
     }
@@ -436,8 +389,8 @@ actor LocationRecorder {
         if pending.count >= Self.flushCount {
             await flush()
         } else if flushTask == nil {
-            flushTask = Task { [weak self] in
-                try? await Task.sleep(for: .seconds(Self.flushSeconds))
+            flushTask = Task { [weak self, clock] in
+                try? await clock.sleep(for: .seconds(Self.flushSeconds))
                 guard !Task.isCancelled else { return }
                 await self?.flush()
             }

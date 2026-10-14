@@ -61,6 +61,52 @@ struct RecorderStoreTests {
         #expect(days.map(\.coarse) == [true, false])
     }
 
+    @Test("The list of days counts each day's trips, stops and distance from its segments")
+    func listOfDaysCountsTripsStopsAndDistanceFromSegments() async throws {
+        let store = try makeStore()
+        try await store.append([fix(at: 0)])
+        let plan: [(offset: TimeInterval, kind: String, metres: Int32)] = [
+            (0, "stop", 0), (1_800, "trip", 5_000), (3_600, "stop", 0), (5_400, "trip", 4_000), (7_200, "trip", 3_400),
+        ]
+        for step in plan {
+            try await store.upsert(
+                SegmentSnapshot(
+                    kind: step.kind, startAt: noon.addingTimeInterval(step.offset),
+                    endAt: noon.addingTimeInterval(step.offset + 1_200), tz: "Europe/Warsaw", distanceM: step.metres))
+        }
+        let days = try await store.daysWithData()
+        #expect(days.map(\.localDay) == ["2026-10-12"])
+        #expect(days.first?.tripCount == 3)
+        #expect(days.first?.stopCount == 2)
+        #expect(days.first?.distanceM == 12_400)
+    }
+
+    @Test("A trip crossing midnight counts on both days, its distance split by the time on each")
+    func tripCrossingMidnightCountsOnBothDays() async throws {
+        let store = try makeStore()
+        try await store.append([fix(at: 0), fix(at: 24 * 3_600)])
+        let lateEvening = Date(timeIntervalSince1970: 1_791_838_800)  // 2026-10-12 23:00 Warsaw
+        try await store.upsert(
+            SegmentSnapshot(
+                kind: "trip", startAt: lateEvening, endAt: lateEvening.addingTimeInterval(2 * 3_600),
+                tz: "Europe/Warsaw", distanceM: 3_000))
+        let days = try await store.daysWithData()
+        #expect(days.map(\.localDay) == ["2026-10-13", "2026-10-12"])
+        #expect(days.map(\.tripCount) == [1, 1])
+        #expect(days.map(\.distanceM) == [1_500, 1_500])
+    }
+
+    @Test("A write announces the days it touched to whoever subscribed")
+    func writeAnnouncesTheDaysItTouched() async throws {
+        let store = try makeStore()
+        var changes = store.changes.subscribe().makeAsyncIterator()
+        try await store.append([fix(at: 0), fix(at: 24 * 3_600)])
+        #expect(await changes.next()?.days == ["2026-10-12", "2026-10-13"])
+        try await store.upsert(
+            SegmentSnapshot(kind: "stop", startAt: noon, endAt: noon.addingTimeInterval(600), tz: "Europe/Warsaw"))
+        #expect(await changes.next()?.days == ["2026-10-12"])
+    }
+
     @Test("A segment crossing midnight is stored once and returned on both days")
     func segmentCrossingMidnightIsReturnedOnBothDays() async throws {
         let store = try makeStore()

@@ -6,6 +6,10 @@ import SwiftData
 /// objects, so no caller holds a `ModelContext` of its own.
 @ModelActor
 actor RecorderStore {
+    /// Every write that touches points or segments is announced here, with the days it
+    /// touched, once it is saved.
+    nonisolated let changes = StoreChangeSignal()
+
     /// Inserts kept fixes in one transaction and refreshes the day list for the days they
     /// touch. A fix with the key of one already stored replaces it rather than doubling it.
     func append(_ fixes: [PointSample]) throws {
@@ -19,6 +23,7 @@ actor RecorderStore {
             try rebuildDaySummary(for: day)
         }
         try modelContext.save()
+        changes.publish(StoreChange(days: days))
     }
 
     func points(onDay day: String) throws -> [PointSample] {
@@ -81,15 +86,18 @@ actor RecorderStore {
                 $0.recordedAt >= start && $0.recordedAt <= end && $0.activityConf == 0 && $0.uploadBatchId == nil
             })
         var changed = 0
+        var days = Set<String>()
         for point in try modelContext.fetch(descriptor) {
             let sample = timeline.sample(at: point.recordedAt)
             guard sample.code != ActivityCode.unknown || sample.confidence > 0 else { continue }
             point.activity = sample.code
             point.activityConf = sample.confidence
             changed += 1
+            days.insert(point.localDay)
         }
         if changed > 0 {
             try modelContext.save()
+            changes.publish(StoreChange(days: days))
         }
         return changed
     }
@@ -98,6 +106,8 @@ actor RecorderStore {
     func upsert(_ snapshot: SegmentSnapshot) throws {
         modelContext.insert(Segment(snapshot))
         try modelContext.save()
+        changes.publish(
+            StoreChange(days: Set(Self.localDays(from: snapshot.startAt, to: snapshot.endAt, tz: snapshot.tz))))
     }
 
     /// This phone's device id, once `ensureDevice` has run.
@@ -123,6 +133,23 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(\.startAt).reversed()
     }
 
+    /// The start of the latest phone stop beginning at or before `moment`: where a run picks
+    /// up, as a trip begins at its stop's last fix and only a stop's own fixes make it again.
+    func latestPhoneStopStart(ofDevice deviceId: UUID, atOrBefore moment: Date) throws -> Date? {
+        // The literals as values: five conditions with two of them spelt inline are more than the
+        // predicate macro's type-checker takes in reasonable time.
+        let phone = "phone"
+        let stop = "stop"
+        var descriptor = FetchDescriptor<Segment>(
+            predicate: #Predicate<Segment> {
+                $0.deviceId == deviceId && $0.computedBy == phone && $0.deletedAt == nil && $0.kind == stop
+                    && $0.startAt <= moment
+            })
+        descriptor.sortBy = [SortDescriptor(\.startAt, order: .reverse)]
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.startAt
+    }
+
     func phoneSegments(ofDevice deviceId: UUID, startingAt from: Date) throws -> [SegmentSnapshot] {
         var descriptor = FetchDescriptor<Segment>(
             predicate: #Predicate<Segment> {
@@ -132,8 +159,23 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(SegmentSnapshot.init)
     }
 
+    /// The start of the earliest phone segment still running at `moment`, so a run over a day
+    /// can begin where the segment crossing its midnight did instead of cutting it there.
+    func earliestPhoneSegmentStart(ofDevice deviceId: UUID, overlapping moment: Date) throws -> Date? {
+        var descriptor = FetchDescriptor<Segment>(
+            predicate: #Predicate<Segment> {
+                $0.deviceId == deviceId && $0.computedBy == "phone" && $0.deletedAt == nil && $0.startAt < moment
+                    && $0.endAt > moment
+            })
+        descriptor.sortBy = [SortDescriptor(\.startAt)]
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.startAt
+    }
+
     /// The segmenter's result for everything from `from` on: rows it no longer produces are
-    /// soft-deleted, the rest written by their stable ids, and the touched days rebuilt.
+    /// soft-deleted, the rest written by their stable ids, and the touched days rebuilt. A row
+    /// the segmenter computed the same again is left as it is, `updatedAt` included, so a run
+    /// over unchanged points writes nothing and announces nothing.
     func replacePhoneSegments(ofDevice deviceId: UUID, startingAt from: Date, with snapshots: [SegmentSnapshot]) throws
     {
         let keep = Set(snapshots.map(\.id))
@@ -143,20 +185,35 @@ actor RecorderStore {
                 predicate: #Predicate<Segment> {
                     $0.deviceId == deviceId && $0.computedBy == "phone" && $0.deletedAt == nil && $0.startAt >= from
                 }))
+        let stored = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for segment in existing where !keep.contains(segment.id) {
             segment.deletedAt = Date()
             segment.updatedAt = Date()
             days.formUnion(Self.localDays(from: segment.startAt, to: segment.endAt, tz: segment.tz))
         }
         for snapshot in snapshots {
+            if let row = stored[snapshot.id], Self.sameSegment(row, as: snapshot) { continue }
             modelContext.insert(Segment(snapshot))
             days.formUnion(Self.localDays(from: snapshot.startAt, to: snapshot.endAt, tz: snapshot.tz))
         }
+        guard !days.isEmpty else { return }
         try modelContext.save()
         for day in days {
             try rebuildDaySummary(for: day)
         }
         try modelContext.save()
+        changes.publish(StoreChange(days: days))
+    }
+
+    /// Whether a stored row already says what the segmenter computed, on the fields a run can
+    /// change; `updatedAt`, `placeId` and the deletion mark are the store's own.
+    private static func sameSegment(_ row: Segment, as snapshot: SegmentSnapshot) -> Bool {
+        row.kind == snapshot.kind && row.startAt == snapshot.startAt && row.endAt == snapshot.endAt
+            && row.tz == snapshot.tz && row.modeDetected == snapshot.modeDetected && row.modeConf == snapshot.modeConf
+            && row.modeType == snapshot.modeType && row.distanceM == snapshot.distanceM
+            && row.pointCount == snapshot.pointCount && row.centerLat == snapshot.centerLat
+            && row.centerLon == snapshot.centerLon && row.steps == snapshot.steps && row.coarse == snapshot.coarse
+            && row.source == snapshot.source && row.algorithmVersion == snapshot.algorithmVersion
     }
 
     /// Every local day a range touches, in its zone.
@@ -180,12 +237,14 @@ actor RecorderStore {
         let points = try modelContext.fetch(
             FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.deviceId == deviceId }))
         let days = Set(points.map(\.localDay))
+        var touched = days
         for point in points {
             modelContext.delete(point)
         }
         let segments = try modelContext.fetch(
             FetchDescriptor<Segment>(predicate: #Predicate<Segment> { $0.deviceId == deviceId }))
         for segment in segments {
+            touched.formUnion(Self.localDays(from: segment.startAt, to: segment.endAt, tz: segment.tz))
             modelContext.delete(segment)
         }
         try modelContext.save()
@@ -193,13 +252,67 @@ actor RecorderStore {
             try rebuildDaySummary(for: day)
         }
         try modelContext.save()
+        changes.publish(StoreChange(days: touched))
         return (points.count, segments.count)
     }
 
+    /// The rows of the list of days, newest first: the points of each day from its summary,
+    /// and its trips, stops and distance counted from the live phone segments in one fetch, so
+    /// a segment written on its own, as the demo month's are, counts without a rebuild.
     func daysWithData() throws -> [DaySummarySnapshot] {
         var descriptor = FetchDescriptor<DaySummary>(predicate: #Predicate<DaySummary> { $0.pointCount > 0 })
         descriptor.sortBy = [SortDescriptor(\.localDay, order: .reverse)]
-        return try modelContext.fetch(descriptor).map(DaySummarySnapshot.init)
+        var rows = try modelContext.fetch(descriptor).map(DaySummarySnapshot.init)
+        guard !rows.isEmpty else { return rows }
+        var segments = FetchDescriptor<Segment>(
+            predicate: #Predicate<Segment> { $0.computedBy == "phone" && $0.deletedAt == nil })
+        segments.propertiesToFetch = [\.kind, \.startAt, \.endAt, \.tz, \.distanceM]
+        var totals: [String: DayTotals] = [:]
+        for segment in try modelContext.fetch(segments) {
+            for day in Self.localDays(from: segment.startAt, to: segment.endAt, tz: segment.tz) {
+                guard let bounds = LocalDay.bounds(of: day, tz: segment.tz), segment.startAt < bounds.end,
+                    segment.endAt > bounds.start
+                else { continue }
+                totals[day, default: DayTotals()].add(
+                    kind: segment.kind,
+                    distanceM: Self.distance(
+                        segment.distanceM, from: segment.startAt, to: segment.endAt, within: bounds))
+            }
+        }
+        for index in rows.indices {
+            let total = totals[rows[index].localDay] ?? DayTotals()
+            rows[index].tripCount = total.trips
+            rows[index].stopCount = total.stops
+            rows[index].distanceM = Int32(total.distanceM.rounded())
+        }
+        return rows
+    }
+
+    /// A day's share of its segments: a count for each, and a trip's distance on that day.
+    private struct DayTotals {
+        var trips: Int32 = 0
+        var stops: Int32 = 0
+        var distanceM = 0.0
+
+        mutating func add(kind: String, distanceM: Double) {
+            if kind == "trip" {
+                trips += 1
+                self.distanceM += distanceM
+            } else {
+                stops += 1
+            }
+        }
+    }
+
+    /// A trip's distance on one local day: all of it when the trip stays inside the day, else
+    /// the share in proportion to the time spent on that side of midnight.
+    static func distance(
+        _ distanceM: Int32, from startAt: Date, to endAt: Date, within bounds: (start: Date, end: Date)
+    ) -> Double {
+        let total = endAt.timeIntervalSince(startAt)
+        guard total > 0 else { return Double(distanceM) }
+        let inside = min(endAt, bounds.end).timeIntervalSince(max(startAt, bounds.start))
+        return Double(distanceM) * max(0, inside) / total
     }
 
     /// The one device row, created on the first call and kept for the life of the install.
@@ -216,8 +329,6 @@ actor RecorderStore {
         return device.id
     }
 
-    /// The day's row of the list: its points, and its phone segments counted on every day they
-    /// touch, with a trip's distance split in proportion to the time on each side of midnight.
     // MARK: - Diagnostics
 
     func logDiagnostic(_ record: DiagnosticRecord) throws {
@@ -257,14 +368,14 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(\.recordedAt)
     }
 
+    /// The day's row of the list: its points, and its phone segments counted on every day they
+    /// touch, with a trip's distance split in proportion to the time on each side of midnight.
     private func rebuildDaySummary(for day: String) throws {
         let count = try modelContext.fetchCount(
             FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.localDay == day }))
         let coarseCount = try modelContext.fetchCount(
             FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.localDay == day && $0.coarse == true }))
-        var trips: Int32 = 0
-        var stops: Int32 = 0
-        var distance = 0.0
+        var totals = DayTotals()
         var coarseSegments = false
         let dayPoints = try modelContext.fetch(
             FetchDescriptor<Point>(predicate: #Predicate<Point> { $0.localDay == day }))
@@ -278,14 +389,10 @@ actor RecorderStore {
                         $0.computedBy == "phone" && $0.deletedAt == nil && $0.startAt < end && $0.endAt > start
                     }))
             for segment in segments {
-                if segment.kind == "trip" {
-                    trips += 1
-                    let total = segment.endAt.timeIntervalSince(segment.startAt)
-                    let inside = min(segment.endAt, end).timeIntervalSince(max(segment.startAt, start))
-                    distance += total > 0 ? Double(segment.distanceM) * inside / total : Double(segment.distanceM)
-                } else {
-                    stops += 1
-                }
+                totals.add(
+                    kind: segment.kind,
+                    distanceM: Self.distance(
+                        segment.distanceM, from: segment.startAt, to: segment.endAt, within: bounds))
                 coarseSegments = coarseSegments || segment.coarse
             }
         }
@@ -293,16 +400,17 @@ actor RecorderStore {
             FetchDescriptor<DaySummary>(predicate: #Predicate<DaySummary> { $0.localDay == day }))
         if let summary = existing.first {
             summary.pointCount = Int32(count)
-            summary.tripCount = trips
-            summary.stopCount = stops
-            summary.distanceM = Int32(distance.rounded())
+            summary.tripCount = totals.trips
+            summary.stopCount = totals.stops
+            summary.distanceM = Int32(totals.distanceM.rounded())
             summary.coarse = coarseCount > 0 || coarseSegments
             summary.updatedAt = Date()
         } else {
             modelContext.insert(
                 DaySummary(
-                    localDay: day, pointCount: Int32(count), tripCount: trips, stopCount: stops,
-                    distanceM: Int32(distance.rounded()), coarse: coarseCount > 0 || coarseSegments, updatedAt: Date()))
+                    localDay: day, pointCount: Int32(count), tripCount: totals.trips, stopCount: totals.stops,
+                    distanceM: Int32(totals.distanceM.rounded()), coarse: coarseCount > 0 || coarseSegments,
+                    updatedAt: Date()))
         }
     }
 }

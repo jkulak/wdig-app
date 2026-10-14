@@ -239,7 +239,8 @@ struct SegmentationRunnerTests {
         try await store.append(own)
         try await store.append(fixture.points)  // the fixture's own device: another device's points
         let recorder = LocationRecorder(
-            store: store, activitySource: FakeActivitySource(), stepsSource: FakeStepsSource())
+            store: store, locationSource: FakeLocationSource(), clock: ContinuousClock(),
+            activitySource: FakeActivitySource(), stepsSource: FakeStepsSource())
         let runner = SegmentationRunner(store: store, recorder: recorder)
         await runner.run()
         let day = LocalDay.key(for: Fixture.t0, tz: "Europe/Warsaw")
@@ -256,5 +257,64 @@ struct SegmentationRunnerTests {
         // The stops absorb the first and last 75 m of the walk, as the radius rule has it.
         #expect((summary?.distanceM ?? 0) > 500)
         #expect(segments[0].center?.distance(to: Fixture.home) ?? 1_000 < 20)
+    }
+
+    func prepared(_ fixture: Fixture) async throws -> (store: RecorderStore, runner: SegmentationRunner) {
+        let store = RecorderStore(modelContainer: try Store.container(inMemory: true))
+        let deviceId = try await store.ensureDevice(name: "test", appVersion: "0")
+        try await store.append(
+            fixture.points.map { point -> PointSample in
+                var copy = point
+                copy.deviceId = deviceId
+                return copy
+            })
+        let recorder = LocationRecorder(
+            store: store, locationSource: FakeLocationSource(), clock: ContinuousClock(),
+            activitySource: FakeActivitySource(), stepsSource: FakeStepsSource())
+        return (store, SegmentationRunner(store: store, recorder: recorder))
+    }
+
+    @Test("A stop that began before midnight keeps its id and its range when its second day is segmented again")
+    func stopCrossingMidnightKeepsItsIdAndRangeWhenItsSecondDayIsSegmentedAgain() async throws {
+        var fixture = Fixture()
+        fixture.time = Fixture.t0.addingTimeInterval(34_200)  // 2026-10-12 23:30 Warsaw
+        fixture.stay(minutes: 60)
+        let (store, runner) = try await prepared(fixture)
+        await runner.run()
+        let before = try await store.segments(overlappingDay: "2026-10-13", tz: "Europe/Warsaw")
+        #expect(before.map(\.kind) == ["stop"])
+        #expect(before.first?.startAt == fixture.points.first?.recordedAt)
+        await runner.resegment(fromDay: "2026-10-13", tz: "Europe/Warsaw")
+        let after = try await store.segments(overlappingDay: "2026-10-13", tz: "Europe/Warsaw")
+        #expect(after.map(\.id) == before.map(\.id))
+        #expect(after.map(\.startAt) == before.map(\.startAt))
+        #expect(after.map(\.endAt) == before.map(\.endAt))
+        let eve = try await store.segments(overlappingDay: "2026-10-12", tz: "Europe/Warsaw")
+        #expect(eve.map(\.id) == before.map(\.id))
+    }
+
+    @Test("A second run over the same points leaves every updatedAt as it was and announces nothing")
+    func secondRunOverTheSamePointsLeavesEveryUpdatedAtAsItWasAndAnnouncesNothing() async throws {
+        var fixture = Fixture()
+        fixture.stay(minutes: 10)
+        fixture.move(metersNorth: 800, speed: 1.4, activity: 2)
+        fixture.stay(minutes: 10)
+        let (store, runner) = try await prepared(fixture)
+        var changes = store.changes.subscribe().makeAsyncIterator()
+        let day = LocalDay.key(for: Fixture.t0, tz: "Europe/Warsaw")
+        await runner.run()
+        #expect(await changes.next()?.days == [day])
+        let first = try await store.segments(overlappingDay: day, tz: "Europe/Warsaw")
+        #expect(first.count == 3)
+        try await Task.sleep(for: .milliseconds(20))  // so a rewritten row would carry a later updatedAt
+        await runner.run()
+        let second = try await store.segments(overlappingDay: day, tz: "Europe/Warsaw")
+        #expect(second.map(\.id) == first.map(\.id))
+        #expect(second.map(\.updatedAt) == first.map(\.updatedAt))
+        // The next announcement is this write's, so the second run made none.
+        let later = Fixture.t0.addingTimeInterval(7 * 86_400)
+        try await store.upsert(
+            SegmentSnapshot(kind: "stop", startAt: later, endAt: later.addingTimeInterval(600), tz: "Europe/Warsaw"))
+        #expect(await changes.next()?.days == ["2026-10-19"])
     }
 }

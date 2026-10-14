@@ -1,12 +1,198 @@
 {
   "sourceLanguage": "en",
   "strings": {
-    "%lld points": {
+    "%@ km": {
       "localizations": {
         "pl": {
           "stringUnit": {
             "state": "translated",
-            "value": "%lld punktów"
+            "value": "%@ km"
+          }
+        }
+      }
+    },
+    "%lld h %lld min": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld h %lld min"
+          }
+        }
+      }
+    },
+    "%lld m": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld m"
+          }
+        }
+      }
+    },
+    "%lld min": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "%lld min"
+          }
+        }
+      }
+    },
+    "%lld points": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld point"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld points"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld punkty"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld punktów"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld punkt"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld punktu"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld stops": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld stop"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld stops"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld postoje"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld postojów"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld postój"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld postoju"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "%lld trips": {
+      "localizations": {
+        "en": {
+          "variations": {
+            "plural": {
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld trip"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld trips"
+                }
+              }
+            }
+          }
+        },
+        "pl": {
+          "variations": {
+            "plural": {
+              "few": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld przejazdy"
+                }
+              },
+              "many": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld przejazdów"
+                }
+              },
+              "one": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld przejazd"
+                }
+              },
+              "other": {
+                "stringUnit": {
+                  "state": "translated",
+                  "value": "%lld przejazdu"
+                }
+              }
+            }
           }
         }
       }
@@ -17,6 +203,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Wszystkie"
+          }
+        }
+      }
+    },
+    "Bike": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Rower"
+          }
+        }
+      }
+    },
+    "Car": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samochód"
           }
         }
       }
@@ -211,6 +417,16 @@
         }
       }
     },
+    "Motorcycle": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Motocykl"
+          }
+        }
+      }
+    },
     "Never": {
       "localizations": {
         "pl": {
@@ -277,6 +493,26 @@
           "stringUnit": {
             "state": "translated",
             "value": "Otwórz Ustawienia"
+          }
+        }
+      }
+    },
+    "Other": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Inne"
+          }
+        }
+      }
+    },
+    "Plane": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Samolot"
           }
         }
       }
@@ -361,6 +597,26 @@
         }
       }
     },
+    "Run": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Bieg"
+          }
+        }
+      }
+    },
+    "Scooter": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Hulajnoga"
+          }
+        }
+      }
+    },
     "Share %@": {
       "localizations": {
         "pl": {
@@ -397,6 +653,16 @@
           "stringUnit": {
             "state": "translated",
             "value": "Stan"
+          }
+        }
+      }
+    },
+    "Stop": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Postój"
           }
         }
       }
@@ -451,6 +717,16 @@
         }
       }
     },
+    "Train": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pociąg"
+          }
+        }
+      }
+    },
     "Tuning (Debug)": {
       "localizations": {
         "pl": {
@@ -463,6 +739,16 @@
     },
     "WDIG": {
       "shouldTranslate": false
+    },
+    "Walk": {
+      "localizations": {
+        "pl": {
+          "stringUnit": {
+            "state": "translated",
+            "value": "Pieszo"
+          }
+        }
+      }
     },
     "Warm phase: %lld s": {
       "localizations": {

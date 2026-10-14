@@ -1,24 +1,40 @@
 import SwiftUI
 
-/// The one place a way of moving gets a colour. Every view that colours by `modeType` asks
-/// here, so the map, the calendar and the timeline agree.
+/// The one place a way of moving gets a colour and a name. Every view that colours by
+/// `modeType` asks here, so the map, the calendar and the timeline agree, and the colours
+/// themselves live in the asset catalog, one set per type with a light and a dark appearance.
 enum ModeTypePalette {
     static let types = ["walk", "run", "scooter", "bike", "motorcycle", "car", "train", "plane", "other"]
 
+    /// The palette's type for a stored one: a type it does not know is drawn as `other`.
+    static func known(_ modeType: String) -> String {
+        types.contains(modeType) ? modeType : "other"
+    }
+
+    /// The colour set's name in the asset catalog, under the `ModeType` folder.
+    static func assetName(for modeType: String) -> String {
+        "ModeType/\(known(modeType))"
+    }
+
     static func color(for modeType: String) -> Color {
-        switch modeType {
-        case "walk": Color(red: 0.20, green: 0.78, blue: 0.35)
-        case "run": Color(red: 1.00, green: 0.58, blue: 0.00)
-        case "scooter": Color(red: 0.19, green: 0.69, blue: 0.78)
-        case "bike": Color(red: 0.00, green: 0.48, blue: 1.00)
-        case "motorcycle": Color(red: 0.69, green: 0.32, blue: 0.87)
-        case "car": Color(red: 0.56, green: 0.56, blue: 0.58)
-        case "train": Color(red: 0.64, green: 0.52, blue: 0.37)
-        case "plane": Color(red: 0.35, green: 0.34, blue: 0.84)
-        default: Color(red: 0.78, green: 0.78, blue: 0.80)
+        Color(assetName(for: modeType), bundle: nil)
+    }
+
+    /// The type's name for a label, from the String Catalog.
+    static func name(for modeType: String) -> String {
+        switch known(modeType) {
+        case "walk": String(localized: "Walk")
+        case "run": String(localized: "Run")
+        case "scooter": String(localized: "Scooter")
+        case "bike": String(localized: "Bike")
+        case "motorcycle": String(localized: "Motorcycle")
+        case "car": String(localized: "Car")
+        case "train": String(localized: "Train")
+        case "plane": String(localized: "Plane")
+        default: String(localized: "Other")
         }
     }
 
     /// Points the segmenter has not assigned to a trip yet: the raw route of a day.
-    static let unsegmented = Color(red: 0.00, green: 0.48, blue: 1.00).opacity(0.6)
+    static let unsegmented = color(for: "bike").opacity(0.6)
 }
