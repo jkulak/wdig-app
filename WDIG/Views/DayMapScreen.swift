@@ -5,7 +5,7 @@ import SwiftUI
 /// decided it, the raw route where it has not, and a dot with the time spent at each stop. It
 /// shows recorded data only and never follows the phone.
 struct DayMapScreen: View {
-    @State private var model = DayMapModel()
+    @State private var model = DayMapModel(store: RecorderHub.shared.store)
     @State private var camera: MapCameraPosition = .automatic
     @State private var showingDays = false
     @State private var showingDiagnostics = false
@@ -32,7 +32,12 @@ struct DayMapScreen: View {
             }
             .mapStyle(.standard(emphasis: .muted))
             .safeAreaInset(edge: .top, spacing: 0) {
-                StatusBanner(showDiagnostics: $showingDiagnostics)
+                VStack(spacing: 0) {
+                    StatusBanner(showDiagnostics: $showingDiagnostics)
+                    if !model.legend.isEmpty {
+                        ModeLegend(modes: model.legend)
+                    }
+                }
             }
             .navigationDestination(isPresented: $showingDiagnostics) {
                 DiagnosticsScreen()
@@ -86,7 +91,35 @@ struct DayMapScreen: View {
                     camera = .region(region)
                 }
             }
+            .task {
+                await model.watch()
+            }
         }
+    }
+}
+
+/// The ways of moving on the shown day, each a swatch and its name, in the palette's order.
+struct ModeLegend: View {
+    let modes: [String]
+
+    var body: some View {
+        ScrollView(.horizontal, showsIndicators: false) {
+            HStack(spacing: 12) {
+                ForEach(modes, id: \.self) { mode in
+                    HStack(spacing: 4) {
+                        Circle()
+                            .fill(ModeTypePalette.color(for: mode))
+                            .frame(width: 10, height: 10)
+                        Text(ModeTypePalette.name(for: mode))
+                    }
+                }
+            }
+            .font(.caption)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 6)
+        }
+        .background(.thinMaterial)
+        .accessibilityIdentifier("mode-legend")
     }
 }
 
@@ -104,7 +137,7 @@ struct DaysList: View {
                     HStack {
                         Text(day.localDay)
                         Spacer()
-                        Text("\(day.pointCount) points").foregroundStyle(.secondary)
+                        Text(day.listText).foregroundStyle(.secondary)
                         if day.coarse {
                             Text("coarse").font(.caption).padding(4).background(.yellow.opacity(0.3), in: Capsule())
                         }
@@ -117,8 +150,21 @@ struct DaysList: View {
     }
 }
 
+extension DaySummarySnapshot {
+    /// The row's text: the trips, stops and distance of a day with segments, the point count
+    /// of a day without.
+    var listText: String {
+        guard tripCount > 0 || stopCount > 0 else { return String(localized: "\(Int(pointCount)) points") }
+        return [
+            String(localized: "\(Int(tripCount)) trips"), String(localized: "\(Int(stopCount)) stops"),
+            DayMapModel.distance(distanceM),
+        ].joined(separator: " · ")
+    }
+}
+
 /// What the map draws for a day, prepared off the map view: lines per trip (or one raw line),
-/// dots per stop, the region that fits them, and the day navigation.
+/// dots per stop, the region that fits them, and the day navigation. It loads the day again
+/// whenever the store announces a write to it, so a segmentation run shows up as it lands.
 @MainActor
 @Observable
 final class DayMapModel {
@@ -135,15 +181,23 @@ final class DayMapModel {
     }
 
     let tz = TimeZone.current.identifier
+    private let store: RecorderStore
     private(set) var day: String
     private(set) var lines: [Line] = []
     private(set) var dotted: [Line] = []
     private(set) var stops: [Stop] = []
+    /// The ways of moving of the day's trips, in the palette's order.
+    private(set) var legend: [String] = []
     private(set) var region: MKCoordinateRegion?
     private(set) var days: [DaySummarySnapshot] = []
+    /// How many loads have finished, so a test can tell a reload from the first load.
+    private(set) var loadCount = 0
+    /// Whether `watch` is subscribed to the store's changes.
+    private(set) var watching = false
 
-    init() {
-        day = LocalDay.key(for: Date(), tz: TimeZone.current.identifier)
+    init(store: RecorderStore, day: String? = nil) {
+        self.store = store
+        self.day = day ?? LocalDay.key(for: Date(), tz: TimeZone.current.identifier)
     }
 
     var title: String {
@@ -170,11 +224,29 @@ final class DayMapModel {
         day = newDay
     }
 
+    /// Loads the shown day again after every write that touches it, and the list of days after
+    /// any other, for as long as the calling task lives.
+    func watch() async {
+        let changes = store.changes.subscribe()
+        watching = true
+        defer { watching = false }
+        for await change in changes {
+            if change.touches(day) {
+                await load()
+            } else {
+                days = (try? await store.daysWithData()) ?? []
+            }
+        }
+    }
+
     func load() async {
-        let store = RecorderHub.shared.store
-        days = (try? await store.daysWithData()) ?? []
+        let day = self.day
+        let days = (try? await store.daysWithData()) ?? []
         let points = ((try? await store.points(onDay: day)) ?? []).filter { $0.hAccM <= 100 }
         let segments = (try? await store.segments(overlappingDay: day, tz: tz)) ?? []
+        // The day changed while the store answered: this result is for a day no longer shown.
+        guard day == self.day else { return }
+        self.days = days
         var lines: [Line] = []
         var dotted: [Line] = []
         var used = Set<Date>()
@@ -230,12 +302,23 @@ final class DayMapModel {
                 id: segment.id, coordinate: coordinate,
                 label: Self.dwell(segment.endAt.timeIntervalSince(segment.startAt)))
         }
+        let modes = Set(segments.filter { $0.kind == "trip" }.map { ModeTypePalette.known($0.modeType) })
+        legend = ModeTypePalette.types.filter { modes.contains($0) }
         region = Self.region(fitting: points.map(\.locationCoordinate) + stops.map(\.coordinate))
+        loadCount += 1
     }
 
     nonisolated static func dwell(_ seconds: TimeInterval) -> String {
         let minutes = Int(seconds / 60)
-        return minutes < 60 ? "\(minutes) min" : "\(minutes / 60) h \(minutes % 60) min"
+        return minutes < 60
+            ? String(localized: "\(minutes) min") : String(localized: "\(minutes / 60) h \(minutes % 60) min")
+    }
+
+    /// A distance for a row: whole metres under a kilometre, one decimal of kilometres from there.
+    nonisolated static func distance(_ metres: Int32) -> String {
+        guard metres >= 1_000 else { return String(localized: "\(Int(metres)) m") }
+        let kilometres = (Double(metres) / 1_000).formatted(.number.precision(.fractionLength(1)))
+        return String(localized: "\(kilometres) km")
     }
 
     nonisolated static func region(fitting coordinates: [CLLocationCoordinate2D]) -> MKCoordinateRegion? {

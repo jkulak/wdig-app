@@ -165,4 +165,13 @@ struct DaySummarySnapshot: Sendable, Equatable {
         distanceM = summary.distanceM
         coarse = summary.coarse
     }
+
+    init(localDay: String, pointCount: Int32, tripCount: Int32, stopCount: Int32, distanceM: Int32, coarse: Bool) {
+        self.localDay = localDay
+        self.pointCount = pointCount
+        self.tripCount = tripCount
+        self.stopCount = stopCount
+        self.distanceM = distanceM
+        self.coarse = coarse
+    }
 }

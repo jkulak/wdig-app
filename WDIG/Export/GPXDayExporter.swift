@@ -62,7 +62,8 @@ enum GPXDayExporter {
             guard let center = stop.center else { continue }
             out.line(#"<wpt lat="\#(XMLOut.degrees(center.latitude))" lon="\#(XMLOut.degrees(center.longitude))">"#)
             out.element("time", XMLOut.time(stop.startAt))
-            out.element("name", "Stop \(XMLOut.clock(stop.startAt, tz: tz))\u{2013}\(XMLOut.clock(stop.endAt, tz: tz))")
+            let span = "\(XMLOut.clock(stop.startAt, tz: tz))\u{2013}\(XMLOut.clock(stop.endAt, tz: tz))"
+            out.element("name", "\(String(localized: "Stop")) \(span)")
             out.element("desc", DayMapModel.dwell(stop.endAt.timeIntervalSince(stop.startAt)))
             out.open("extensions")
             out.element("wdig:segment_id", stop.id.uuidString.lowercased())

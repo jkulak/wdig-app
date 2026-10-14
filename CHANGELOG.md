@@ -31,6 +31,15 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
   change, coarse mode in Low Power Mode or under 20 % battery.
 - The map of a day: the route coloured by the way of moving where segments exist, the raw route
   where not, a dot with the time spent at each stop, a day stepper and the list of days.
+- The map redraws by itself when the store changes under it: a segmentation run, a demo
+  month or its removal shows up on the open day without a relaunch or a day change.
+- A legend under the status banner with the ways of moving on the shown day, each a swatch
+  and its name, in the palette's order; it is absent on a day with no trips.
+- The list of days says what each day holds: its trips, stops and distance, as
+  `3 trips · 2 stops · 12.4 km`, with the plural forms of English and Polish; a day with
+  points and no segments keeps its point count.
+- The nine colours of the ways of moving are colour sets in the asset catalog with a dark
+  appearance, lighter and more saturated, so a route is readable on the dark map.
 - The Status screen: the tracking switch, the last fix, the counts and the recent events; in a
   Debug build, a demo month to look at and a button to remove it. The demo month runs over
   Warsaw's real streets (Apple Maps routes between home, the Old Town, the Vistula, Łomianki,
