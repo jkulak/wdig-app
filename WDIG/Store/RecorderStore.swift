@@ -133,6 +133,23 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(\.startAt).reversed()
     }
 
+    /// The start of the latest phone stop beginning at or before `moment`: where a run picks
+    /// up, as a trip begins at its stop's last fix and only a stop's own fixes make it again.
+    func latestPhoneStopStart(ofDevice deviceId: UUID, atOrBefore moment: Date) throws -> Date? {
+        // The literals as values: five conditions with two of them spelt inline are more than the
+        // predicate macro's type-checker takes in reasonable time.
+        let phone = "phone"
+        let stop = "stop"
+        var descriptor = FetchDescriptor<Segment>(
+            predicate: #Predicate<Segment> {
+                $0.deviceId == deviceId && $0.computedBy == phone && $0.deletedAt == nil && $0.kind == stop
+                    && $0.startAt <= moment
+            })
+        descriptor.sortBy = [SortDescriptor(\.startAt, order: .reverse)]
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.startAt
+    }
+
     func phoneSegments(ofDevice deviceId: UUID, startingAt from: Date) throws -> [SegmentSnapshot] {
         var descriptor = FetchDescriptor<Segment>(
             predicate: #Predicate<Segment> {
@@ -142,8 +159,23 @@ actor RecorderStore {
         return try modelContext.fetch(descriptor).map(SegmentSnapshot.init)
     }
 
+    /// The start of the earliest phone segment still running at `moment`, so a run over a day
+    /// can begin where the segment crossing its midnight did instead of cutting it there.
+    func earliestPhoneSegmentStart(ofDevice deviceId: UUID, overlapping moment: Date) throws -> Date? {
+        var descriptor = FetchDescriptor<Segment>(
+            predicate: #Predicate<Segment> {
+                $0.deviceId == deviceId && $0.computedBy == "phone" && $0.deletedAt == nil && $0.startAt < moment
+                    && $0.endAt > moment
+            })
+        descriptor.sortBy = [SortDescriptor(\.startAt)]
+        descriptor.fetchLimit = 1
+        return try modelContext.fetch(descriptor).first?.startAt
+    }
+
     /// The segmenter's result for everything from `from` on: rows it no longer produces are
-    /// soft-deleted, the rest written by their stable ids, and the touched days rebuilt.
+    /// soft-deleted, the rest written by their stable ids, and the touched days rebuilt. A row
+    /// the segmenter computed the same again is left as it is, `updatedAt` included, so a run
+    /// over unchanged points writes nothing and announces nothing.
     func replacePhoneSegments(ofDevice deviceId: UUID, startingAt from: Date, with snapshots: [SegmentSnapshot]) throws
     {
         let keep = Set(snapshots.map(\.id))
@@ -153,21 +185,35 @@ actor RecorderStore {
                 predicate: #Predicate<Segment> {
                     $0.deviceId == deviceId && $0.computedBy == "phone" && $0.deletedAt == nil && $0.startAt >= from
                 }))
+        let stored = Dictionary(existing.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         for segment in existing where !keep.contains(segment.id) {
             segment.deletedAt = Date()
             segment.updatedAt = Date()
             days.formUnion(Self.localDays(from: segment.startAt, to: segment.endAt, tz: segment.tz))
         }
         for snapshot in snapshots {
+            if let row = stored[snapshot.id], Self.sameSegment(row, as: snapshot) { continue }
             modelContext.insert(Segment(snapshot))
             days.formUnion(Self.localDays(from: snapshot.startAt, to: snapshot.endAt, tz: snapshot.tz))
         }
+        guard !days.isEmpty else { return }
         try modelContext.save()
         for day in days {
             try rebuildDaySummary(for: day)
         }
         try modelContext.save()
         changes.publish(StoreChange(days: days))
+    }
+
+    /// Whether a stored row already says what the segmenter computed, on the fields a run can
+    /// change; `updatedAt`, `placeId` and the deletion mark are the store's own.
+    private static func sameSegment(_ row: Segment, as snapshot: SegmentSnapshot) -> Bool {
+        row.kind == snapshot.kind && row.startAt == snapshot.startAt && row.endAt == snapshot.endAt
+            && row.tz == snapshot.tz && row.modeDetected == snapshot.modeDetected && row.modeConf == snapshot.modeConf
+            && row.modeType == snapshot.modeType && row.distanceM == snapshot.distanceM
+            && row.pointCount == snapshot.pointCount && row.centerLat == snapshot.centerLat
+            && row.centerLon == snapshot.centerLon && row.steps == snapshot.steps && row.coarse == snapshot.coarse
+            && row.source == snapshot.source && row.algorithmVersion == snapshot.algorithmVersion
     }
 
     /// Every local day a range touches, in its zone.

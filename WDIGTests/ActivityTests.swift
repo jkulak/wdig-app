@@ -124,6 +124,13 @@ struct ActivityBackfillTests {
         #expect(try await store.latestStampedPointDate() == t0.addingTimeInterval(490))
         #expect(try await store.restampActivity(from: t0, to: t0.addingTimeInterval(700), samples: samples) == 0)
     }
+
+    @Test("The back-fill's log line names its range in UTC to the minute and the points it stamped")
+    func backfillLogLineNamesItsRangeAndTheStampedPoints() {
+        let event = RecorderEvent.activityBackfilled(
+            from: Date(timeIntervalSince1970: 1_791_784_800), to: Date(timeIntervalSince1970: 1_791_792_000), count: 50)
+        #expect(event.text == "backfill 2026-10-12T06:00Z–2026-10-12T08:00Z, 50 points")
+    }
 }
 
 struct StepsTests {

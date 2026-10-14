@@ -2,8 +2,9 @@ import Foundation
 
 /// Runs the segmenter over the phone's own points and keeps the store's segments in step:
 /// after each batch the recorder writes, on return to the foreground, and on demand over past
-/// days. Only the last two segments are ever recomputed in a normal run; everything before
-/// them is closed. Segments of other devices (the demo month, a restore) are never touched.
+/// days. A normal run picks up at the last closed stop, so only the last few segments are ever
+/// recomputed; everything before them is closed. Segments of other devices (the demo month, a
+/// restore) are never touched.
 actor SegmentationRunner {
     private let store: RecorderStore
     private let recorder: LocationRecorder
@@ -20,20 +21,32 @@ actor SegmentationRunner {
         settings = newSettings
     }
 
-    /// Segments everything from the second-to-last segment on; nothing changes when nothing new arrived.
+    /// Segments everything from the last closed stop on; nothing changes when nothing new arrived.
     func run() async {
         guard !running, let deviceId = try? await store.deviceId() else { return }
         running = true
         defer { running = false }
-        let from = (try? await store.phoneSegmentStarts(ofDevice: deviceId, last: 2).first) ?? .distantPast
+        let closed = (try? await store.phoneSegmentStarts(ofDevice: deviceId, last: 2).first) ?? .distantPast
+        let from = await restart(deviceId: deviceId, atOrBefore: closed)
         await segment(deviceId: deviceId, from: from)
     }
 
-    /// Drops every phone segment ending after the day's start and computes them again with the
-    /// current settings and version.
+    /// Computes every phone segment ending after the day's start again with the current settings
+    /// and version. A segment already running at the day's midnight is rebuilt from its own
+    /// start, so a trip or a stop crossing it stays whole and keeps its id.
     func resegment(fromDay day: String, tz: String) async {
         guard let deviceId = try? await store.deviceId(), let bounds = LocalDay.bounds(of: day, tz: tz) else { return }
-        await segment(deviceId: deviceId, from: bounds.start)
+        let crossing = try? await store.earliestPhoneSegmentStart(ofDevice: deviceId, overlapping: bounds.start)
+        let from = await restart(deviceId: deviceId, atOrBefore: min(crossing ?? bounds.start, bounds.start))
+        await segment(deviceId: deviceId, from: from)
+    }
+
+    /// Where a run that has to reach `moment` picks up: the latest stop beginning at or before
+    /// it. A trip begins at its stop's last fix, so a run begun at the trip's own start would
+    /// take that fix into the trip and write it again, a point longer, after every batch; from
+    /// a stop's first fix the segmenter finds everything after it exactly as it did before.
+    private func restart(deviceId: UUID, atOrBefore moment: Date) async -> Date {
+        (try? await store.latestPhoneStopStart(ofDevice: deviceId, atOrBefore: moment)) ?? .distantPast
     }
 
     private func segment(deviceId: UUID, from: Date) async {

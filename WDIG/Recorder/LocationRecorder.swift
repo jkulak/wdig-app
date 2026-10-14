@@ -143,7 +143,7 @@ actor LocationRecorder {
                 timeline.add(last)
             }
             let count = try await store.restampActivity(from: range.from, to: range.to, samples: samples)
-            note(.activityBackfilled(count: count))
+            note(.activityBackfilled(from: range.from, to: range.to, count: count))
         } catch {
             note(.error("activity history: \(error.localizedDescription)"))
         }

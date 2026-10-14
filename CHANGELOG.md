@@ -46,6 +46,15 @@ Lines under `### Internal` are for the repository, not for a tester's "What to T
   the office, Złote Tarasy, Kinoteka, Łazienki and Hala Koszyki), sampled as the recorder
   keeps fixes.
 
+### Fixed
+
+- Segmenting a day again starts from the segment already running at its midnight, so a trip
+  or a stop that crosses it is rebuilt whole and keeps its id instead of being cut at 00:00.
+- A segmentation run whose result matches what is stored writes nothing: a segment's
+  `updatedAt` moves only when the segment does, and the map is not told of a change it cannot see.
+- The diagnostics line of an activity back-fill says which range it covered,
+  `backfill 2026-10-12T06:00Z–2026-10-12T08:00Z, 50 points`, not only how many points.
+
 ### Internal
 
 - The recorder takes its clock and Core Location through its initialiser: `ContinuousClock` and
